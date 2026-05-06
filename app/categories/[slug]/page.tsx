@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ProductCard } from '@/components/shop/ProductCard'
 import { EmptyState } from '@/components/shop/EmptyState'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { buildMetadata, breadcrumbSchema, SITE_URL } from '@/lib/seo/metadata'
 import type { Product, Category } from '@/types'
 
 interface CategoryPageProps {
@@ -14,7 +16,11 @@ export async function generateMetadata({ params }: CategoryPageProps) {
   const supabase = await createClient()
   const { data } = await supabase.from('categories').select('name, description').eq('slug', slug).single()
   if (!data) return {}
-  return { title: data.name, description: data.description ?? undefined }
+  return buildMetadata({
+    title: data.name,
+    description: data.description ?? `Shop ${data.name} delivered same-day in North Jersey.`,
+    path: `/categories/${slug}`,
+  })
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
@@ -43,6 +49,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <JsonLd data={breadcrumbSchema([
+        { name: 'Home', url: SITE_URL },
+        { name: 'Shop', url: `${SITE_URL}/shop` },
+        { name: cat.name, url: `${SITE_URL}/categories/${cat.slug}` },
+      ])} />
       <nav className="text-sm text-gray-500 mb-6 flex items-center gap-2">
         <Link href="/" className="hover:text-brand-green">Home</Link>
         <span>/</span>

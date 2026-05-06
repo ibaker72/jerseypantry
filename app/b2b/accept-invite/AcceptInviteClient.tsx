@@ -44,8 +44,8 @@ export function AcceptInviteClient() {
       return
     }
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
+    supabase.auth.getUser().then((result) => {
+      if (result.data.user) {
         acceptInvite()
       } else {
         setStage('sign-in')
