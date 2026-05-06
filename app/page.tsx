@@ -4,8 +4,15 @@ import { Button } from '@/components/ui/button'
 import { CategoryCard } from '@/components/shop/CategoryCard'
 import { ProductCard } from '@/components/shop/ProductCard'
 import { DeliveryZoneChecker } from '@/components/shop/DeliveryZoneChecker'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { createClient } from '@/lib/supabase/server'
+import { buildMetadata, localBusinessSchema } from '@/lib/seo/metadata'
 import type { Category, Product } from '@/types'
+
+export const metadata = buildMetadata({
+  description:
+    'Same-day delivery of snacks, drinks, and household essentials across Passaic, Clifton, Paterson, Rutherford, and surrounding North Jersey towns.',
+})
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -39,6 +46,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col gap-0">
+      <JsonLd data={localBusinessSchema()} />
       {/* Hero */}
       <section className="relative bg-brand-green text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10">

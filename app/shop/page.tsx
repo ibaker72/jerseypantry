@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ProductCard } from '@/components/shop/ProductCard'
 import { EmptyState } from '@/components/shop/EmptyState'
 import { ShopFilters } from './ShopFilters'
+import { buildMetadata } from '@/lib/seo/metadata'
 import type { Product, Category, FlashSale } from '@/types'
 
 interface ShopPageProps {
@@ -13,10 +14,12 @@ interface ShopPageProps {
   }>
 }
 
-export const metadata = {
+export const metadata = buildMetadata({
   title: 'Shop All Products',
-  description: 'Browse all snacks, drinks, household essentials, and local favorites.',
-}
+  description:
+    'Browse snacks, drinks, household essentials, and local favorites — delivered same-day across North Jersey.',
+  path: '/shop',
+})
 
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const params = await searchParams

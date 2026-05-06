@@ -7,6 +7,8 @@ import { ProductCard } from '@/components/shop/ProductCard'
 import { AddToCartButton } from './AddToCartButton'
 import { SubscribeButton } from './SubscribeButton'
 import { formatPrice } from '@/lib/utils/format'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { buildMetadata, productSchema, breadcrumbSchema, SITE_URL } from '@/lib/seo/metadata'
 import { Truck, Package, CheckCircle, XCircle } from 'lucide-react'
 import type { Product, Category } from '@/types'
 
@@ -17,9 +19,18 @@ interface ProductPageProps {
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params
   const supabase = await createClient()
-  const { data } = await supabase.from('products').select('name, description').eq('slug', slug).single()
+  const { data } = await supabase
+    .from('products')
+    .select('name, description, image_url, price')
+    .eq('slug', slug)
+    .single()
   if (!data) return {}
-  return { title: data.name, description: data.description ?? undefined }
+  return buildMetadata({
+    title: data.name,
+    description: data.description ?? undefined,
+    path: `/shop/${slug}`,
+    image: data.image_url ?? undefined,
+  })
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
@@ -45,8 +56,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
     .neq('id', p.id)
     .limit(4)
 
+  const breadcrumbs = [
+    { name: 'Home', url: SITE_URL },
+    { name: 'Shop', url: `${SITE_URL}/shop` },
+    ...(p.category ? [{ name: p.category.name, url: `${SITE_URL}/categories/${p.category.slug}` }] : []),
+    { name: p.name, url: `${SITE_URL}/shop/${p.slug}` },
+  ]
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <JsonLd data={[
+        productSchema({ name: p.name, description: p.description, price: p.price, image: p.image_url, slug: p.slug, inStock: (p.stock_quantity ?? 0) > 0, brand: p.brand }),
+        breadcrumbSchema(breadcrumbs),
+      ]} />
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 mb-6 flex items-center gap-2">
         <Link href="/" className="hover:text-brand-green">Home</Link>

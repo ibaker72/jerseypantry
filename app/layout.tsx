@@ -5,22 +5,40 @@ import { CartProvider } from '@/components/cart/CartContext'
 import { Header } from '@/components/site/Header'
 import { Footer } from '@/components/site/Footer'
 import { ToastProvider, ToastViewport } from '@/components/ui/toast'
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, DEFAULT_OG_IMAGE } from '@/lib/seo/metadata'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: 'My Corner Store — Your corner store, online.',
-    template: '%s | My Corner Store',
+    default: `${SITE_NAME} — Your corner store, online.`,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    'Snacks, drinks, household essentials, and local favorites delivered same-day around North Jersey.',
-  keywords: ['corner store', 'local delivery', 'North Jersey', 'snacks', 'drinks', 'household essentials'],
+  description: SITE_DESCRIPTION,
+  keywords: [
+    'corner store', 'local delivery', 'North Jersey delivery', 'same-day delivery NJ',
+    'snacks', 'drinks', 'household essentials', 'Passaic NJ', 'Clifton NJ', 'Paterson NJ',
+    'office snacks North Jersey', 'convenience store delivery',
+  ],
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
   openGraph: {
-    title: 'My Corner Store',
-    description: 'Your corner store, online.',
+    title: `${SITE_NAME} — Your corner store, online.`,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
     type: 'website',
+    locale: 'en_US',
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: SITE_NAME }],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${SITE_NAME} — Your corner store, online.`,
+    description: SITE_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  robots: { index: true, follow: true },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
