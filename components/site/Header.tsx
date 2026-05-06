@@ -55,6 +55,7 @@ export function Header() {
               </Link>
 
               <button
+                suppressHydrationWarning
                 onClick={openCart}
                 className="relative p-2 text-gray-600 hover:text-brand-green transition-colors"
                 aria-label="Open cart"
@@ -68,6 +69,7 @@ export function Header() {
               </button>
 
               <button
+                suppressHydrationWarning
                 className="lg:hidden p-2 text-gray-600 hover:text-brand-green transition-colors"
                 onClick={() => setMobileOpen(!mobileOpen)}
                 aria-label="Toggle menu"
