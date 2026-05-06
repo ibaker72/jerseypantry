@@ -1,0 +1,220 @@
+// ============================================================
+// Core domain types for My Corner Store
+// ============================================================
+
+export type UserRole = 'customer' | 'admin'
+
+export interface Profile {
+  id: string
+  email: string | null
+  full_name: string | null
+  role: UserRole
+  created_at: string
+  updated_at: string
+}
+
+export interface Category {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  sort_order: number
+  is_active: boolean
+  created_at: string
+}
+
+export interface Product {
+  id: string
+  category_id: string | null
+  name: string
+  slug: string
+  description: string | null
+  sku: string | null
+  barcode: string | null
+  brand: string | null
+  size: string | null
+  unit: string | null
+  image_url: string | null
+  wholesale_cost: number
+  retail_price: number
+  compare_at_price: number | null
+  inventory_quantity: number
+  reorder_threshold: number
+  is_active: boolean
+  is_featured: boolean
+  is_bundle: boolean
+  shipping_eligible: boolean
+  delivery_eligible: boolean
+  badges: string[]
+  created_at: string
+  updated_at: string
+  // joined
+  category?: Category | null
+}
+
+export interface Customer {
+  id: string
+  user_id: string | null
+  email: string
+  phone: string | null
+  first_name: string | null
+  last_name: string | null
+  created_at: string
+}
+
+export interface Address {
+  id: string
+  customer_id: string
+  line1: string
+  line2: string | null
+  city: string | null
+  state: string | null
+  postal_code: string | null
+  country: string
+  delivery_instructions: string | null
+  created_at: string
+}
+
+export type OrderStatus =
+  | 'pending'
+  | 'paid'
+  | 'preparing'
+  | 'out_for_delivery'
+  | 'completed'
+  | 'canceled'
+  | 'refunded'
+
+export type FulfillmentMethod = 'local_delivery' | 'pickup' | 'shipping'
+
+export interface Order {
+  id: string
+  order_number: string
+  customer_id: string | null
+  email: string
+  phone: string | null
+  status: OrderStatus
+  fulfillment_method: FulfillmentMethod
+  subtotal: number
+  delivery_fee: number
+  shipping_fee: number
+  tax_amount: number
+  discount_amount: number
+  total: number
+  stripe_checkout_session_id: string | null
+  stripe_payment_intent_id: string | null
+  delivery_address: DeliveryAddress | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // joined
+  order_items?: OrderItem[]
+  customer?: Customer | null
+}
+
+export interface DeliveryAddress {
+  line1: string
+  line2?: string
+  city: string
+  state: string
+  postal_code: string
+  country: string
+  delivery_instructions?: string
+}
+
+export interface OrderItem {
+  id: string
+  order_id: string
+  product_id: string | null
+  product_name: string
+  sku: string | null
+  quantity: number
+  unit_price: number
+  line_total: number
+  created_at: string
+}
+
+export interface DeliveryZone {
+  id: string
+  name: string
+  postal_code: string
+  city: string | null
+  delivery_fee: number
+  free_delivery_minimum: number
+  is_active: boolean
+  created_at: string
+}
+
+export interface InventoryMovement {
+  id: string
+  product_id: string | null
+  movement_type: 'manual_adjustment' | 'order_sale' | 'restock' | 'return' | 'damage'
+  quantity_change: number
+  note: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface Coupon {
+  id: string
+  code: string
+  type: 'percent' | 'fixed'
+  value: number
+  minimum_subtotal: number
+  is_active: boolean
+  expires_at: string | null
+  created_at: string
+}
+
+export interface OfficeRefillLead {
+  id: string
+  business_name: string
+  contact_name: string | null
+  email: string
+  phone: string | null
+  business_type: string | null
+  estimated_budget: string | null
+  message: string | null
+  status: string
+  created_at: string
+}
+
+// Cart types
+export interface CartItem {
+  id: string
+  product_id: string
+  name: string
+  slug: string
+  image_url: string | null
+  retail_price: number
+  quantity: number
+  inventory_quantity: number
+  shipping_eligible: boolean
+  delivery_eligible: boolean
+  sku: string | null
+}
+
+export interface Cart {
+  items: CartItem[]
+  fulfillment_method: FulfillmentMethod
+  postal_code: string
+  coupon_code: string
+}
+
+// Checkout request / response
+export interface CheckoutRequestBody {
+  items: Array<{ product_id: string; quantity: number }>
+  fulfillment_method: FulfillmentMethod
+  email: string
+  postal_code?: string
+  coupon_code?: string
+  delivery_address?: DeliveryAddress
+}
+
+export interface PricingSummary {
+  subtotal: number
+  delivery_fee: number
+  shipping_fee: number
+  tax_amount: number
+  discount_amount: number
+  total: number
+}
