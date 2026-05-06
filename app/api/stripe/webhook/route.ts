@@ -30,12 +30,32 @@ export async function POST(req: NextRequest) {
     case 'checkout.session.expired':
       await handleCheckoutExpired(event.data.object as Stripe.Checkout.Session)
       break
+    // B2B subscription lifecycle
+    case 'customer.subscription.created':
+    case 'customer.subscription.updated':
+      await handleSubscriptionUpsert(event.data.object as Stripe.Subscription)
+      break
+    case 'customer.subscription.deleted':
+      await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
+      break
+    case 'invoice.payment_succeeded':
+      await handleInvoicePaid(event.data.object as Stripe.Invoice)
+      break
+    case 'invoice.payment_failed':
+      await handleInvoiceFailed(event.data.object as Stripe.Invoice)
+      break
   }
 
   return NextResponse.json({ received: true })
 }
 
 async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
+  // Route B2B subscription checkouts separately
+  if (session.metadata?.b2b === 'true') {
+    await handleB2BCheckoutComplete(session)
+    return
+  }
+
   const orderId = session.metadata?.order_id
   const inventoryAlreadyReserved = session.metadata?.inventory_reserved === 'true'
   const userId = session.metadata?.user_id || null
@@ -223,4 +243,144 @@ async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
 
   await supabase.from('orders').update({ status: 'canceled' }).eq('id', orderId)
   console.log(`❌ Order ${orderId} canceled (checkout expired)`)
+}
+
+async function handleB2BCheckoutComplete(session: Stripe.Checkout.Session) {
+  const { user_id, plan, billing_type, business_name, contact_name, contact_phone, business_type } = session.metadata ?? {}
+  if (!user_id || !plan || !business_name) return
+
+  const supabase = createAdminClient()
+  const stripeCustomerId = typeof session.customer === 'string' ? session.customer : null
+  const stripeSubscriptionId = typeof session.subscription === 'string' ? session.subscription : null
+
+  // Upsert business account
+  const { data: existing } = await supabase
+    .from('business_accounts')
+    .select('id')
+    .eq('contact_email', session.customer_email ?? '')
+    .single()
+
+  let businessId: string
+  if (existing) {
+    await supabase.from('business_accounts').update({
+      stripe_customer_id: stripeCustomerId,
+      stripe_subscription_id: stripeSubscriptionId,
+      subscription_status: stripeSubscriptionId ? 'active' : 'pending',
+      plan_name: plan as 'starter' | 'standard' | 'premium',
+      billing_type: (billing_type ?? 'card') as 'card' | 'net30',
+    }).eq('id', existing.id)
+    businessId = existing.id
+  } else {
+    const { data: newBA } = await supabase.from('business_accounts').insert({
+      business_name,
+      contact_name: contact_name || null,
+      contact_email: session.customer_email ?? '',
+      contact_phone: contact_phone || null,
+      business_type: business_type || null,
+      plan_name: plan as 'starter' | 'standard' | 'premium',
+      billing_type: (billing_type ?? 'card') as 'card' | 'net30',
+      stripe_customer_id: stripeCustomerId,
+      stripe_subscription_id: stripeSubscriptionId,
+      subscription_status: stripeSubscriptionId ? 'active' : 'pending',
+    }).select('id').single()
+    businessId = newBA!.id
+  }
+
+  // Add user as owner if not already a member
+  await supabase.from('business_members').upsert({
+    business_id: businessId,
+    user_id,
+    email: session.customer_email ?? '',
+    role: 'owner',
+    accepted_at: new Date().toISOString(),
+  }, { onConflict: 'business_id,user_id', ignoreDuplicates: true })
+
+  console.log(`🏢 B2B account provisioned: ${business_name} (${plan})`)
+}
+
+async function handleSubscriptionUpsert(subscription: Stripe.Subscription) {
+  const supabase = createAdminClient()
+  const stripeCustomerId = typeof subscription.customer === 'string' ? subscription.customer : null
+  if (!stripeCustomerId) return
+
+  const statusMap: Record<string, string> = {
+    active: 'active', trialing: 'trialing', past_due: 'past_due',
+    canceled: 'canceled', unpaid: 'past_due', paused: 'paused',
+  }
+
+  await supabase.from('business_accounts').update({
+    stripe_subscription_id: subscription.id,
+    subscription_status: statusMap[subscription.status] ?? 'pending',
+    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+  }).eq('stripe_customer_id', stripeCustomerId)
+
+  console.log(`🔄 B2B subscription updated: ${subscription.id} → ${subscription.status}`)
+}
+
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+  const supabase = createAdminClient()
+  const stripeCustomerId = typeof subscription.customer === 'string' ? subscription.customer : null
+  if (!stripeCustomerId) return
+
+  await supabase.from('business_accounts').update({
+    subscription_status: 'canceled',
+    stripe_subscription_id: null,
+  }).eq('stripe_customer_id', stripeCustomerId)
+
+  console.log(`❌ B2B subscription canceled: ${subscription.id}`)
+}
+
+async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  const supabase = createAdminClient()
+  const stripeCustomerId = typeof invoice.customer === 'string' ? invoice.customer : null
+  if (!stripeCustomerId) return
+
+  const { data: ba } = await supabase
+    .from('business_accounts')
+    .select('id')
+    .eq('stripe_customer_id', stripeCustomerId)
+    .single()
+
+  if (!ba) return
+
+  await supabase.from('business_invoices').upsert({
+    business_id: ba.id,
+    stripe_invoice_id: invoice.id,
+    amount_due: (invoice.amount_due ?? 0) / 100,
+    amount_paid: (invoice.amount_paid ?? 0) / 100,
+    status: 'paid',
+    paid_at: new Date().toISOString(),
+    invoice_pdf_url: invoice.invoice_pdf,
+  }, { onConflict: 'stripe_invoice_id' })
+
+  console.log(`💰 B2B invoice paid: ${invoice.id}`)
+}
+
+async function handleInvoiceFailed(invoice: Stripe.Invoice) {
+  const supabase = createAdminClient()
+  const stripeCustomerId = typeof invoice.customer === 'string' ? invoice.customer : null
+  if (!stripeCustomerId) return
+
+  const { data: ba } = await supabase
+    .from('business_accounts')
+    .select('id')
+    .eq('stripe_customer_id', stripeCustomerId)
+    .single()
+
+  if (!ba) return
+
+  await supabase.from('business_accounts').update({ subscription_status: 'past_due' })
+    .eq('stripe_customer_id', stripeCustomerId)
+
+  await supabase.from('business_invoices').upsert({
+    business_id: ba.id,
+    stripe_invoice_id: invoice.id,
+    amount_due: (invoice.amount_due ?? 0) / 100,
+    amount_paid: 0,
+    status: 'open',
+    due_date: invoice.due_date ? new Date(invoice.due_date * 1000).toISOString() : null,
+    invoice_pdf_url: invoice.invoice_pdf,
+  }, { onConflict: 'stripe_invoice_id' })
+
+  console.log(`⚠️  B2B invoice payment failed: ${invoice.id}`)
 }
