@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Star, Package, ArrowRight, Gift } from 'lucide-react'
+import { Star, Package, ArrowRight, Gift, DollarSign, Users } from 'lucide-react'
 import type { Order, Profile } from '@/types'
 
 export const metadata = { title: 'My Account — My Corner Store' }
@@ -55,11 +55,39 @@ export default async function AccountDashboard() {
         </div>
       </div>
 
+      {/* Store credit */}
+      {(p?.store_credit ?? 0) > 0 && (
+        <div className="rounded-2xl bg-white border border-brand-green/30 shadow-sm p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-brand-green/10 rounded-xl p-3">
+              <DollarSign className="h-5 w-5 text-brand-green" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Store Credit</p>
+              <p className="text-2xl font-bold text-brand-green">${(p.store_credit).toFixed(2)}</p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 text-right">Applied automatically<br />at checkout</p>
+        </div>
+      )}
+
       {/* Welcome */}
       <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-6">
         <p className="text-gray-500 text-sm">Welcome back,</p>
         <p className="text-xl font-bold text-brand-charcoal">{p?.full_name || user.email}</p>
       </div>
+
+      {/* Referral CTA */}
+      <Link href="/account/referrals" className="block rounded-2xl bg-amber-50 border border-amber-200 shadow-sm p-4 hover:border-amber-400 transition-colors">
+        <div className="flex items-center gap-3">
+          <Users className="h-5 w-5 text-amber-600 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold text-amber-800 text-sm">Refer a friend — get $10 store credit</p>
+            <p className="text-xs text-amber-600 mt-0.5">They get $5 off their first order too</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-amber-600" />
+        </div>
+      </Link>
 
       {/* Recent orders */}
       <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-6">

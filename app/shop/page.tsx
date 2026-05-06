@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ProductCard } from '@/components/shop/ProductCard'
 import { EmptyState } from '@/components/shop/EmptyState'
 import { ShopFilters } from './ShopFilters'
-import type { Product, Category } from '@/types'
+import type { Product, Category, FlashSale } from '@/types'
 
 interface ShopPageProps {
   searchParams: Promise<{
@@ -24,7 +24,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   const supabase = await createClient()
 
-  const [{ data: categories }, productsResult] = await Promise.all([
+  const [{ data: categories }, productsResult, { data: flashSalesRaw }] = await Promise.all([
     supabase.from('categories').select('*').eq('is_active', true).order('sort_order'),
     (async () => {
       let query = supabase
@@ -63,10 +63,27 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
       return query
     })(),
+    supabase
+      .from('flash_sales')
+      .select('*')
+      .eq('is_active', true)
+      .lte('starts_at', new Date().toISOString())
+      .gte('ends_at', new Date().toISOString()),
   ])
 
   const products = (productsResult.data ?? []) as Product[]
   const cats = (categories ?? []) as Category[]
+  const flashSales = (flashSalesRaw ?? []) as FlashSale[]
+
+  // Build lookup: product_id -> best flash sale
+  function getFlashSale(product: Product): FlashSale | null {
+    return (
+      flashSales.find((s) => s.product_id === product.id) ??
+      flashSales.find((s) => s.category_id === product.category_id) ??
+      flashSales.find((s) => !s.product_id && !s.category_id) ??
+      null
+    )
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -88,7 +105,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 mt-6">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} flashSale={getFlashSale(product)} />
           ))}
         </div>
       )}

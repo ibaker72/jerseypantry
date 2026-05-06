@@ -5,20 +5,35 @@ import Link from 'next/link'
 import { ShoppingCart, Plus, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ProductBadgeList } from './ProductBadge'
+import { FlashSaleCountdown } from './FlashSaleCountdown'
 import { useCart } from '@/components/cart/CartContext'
 import { formatPrice } from '@/lib/utils/format'
-import type { Product } from '@/types'
+import type { Product, FlashSale } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 interface ProductCardProps {
   product: Product
+  flashSale?: FlashSale | null
   className?: string
 }
 
-export function ProductCard({ product, className }: ProductCardProps) {
+export function ProductCard({ product, flashSale, className }: ProductCardProps) {
   const { cart, addToCart, updateItemQuantity } = useCart()
   const cartItem = cart.items.find((i) => i.product_id === product.id)
   const isOutOfStock = product.inventory_quantity === 0
+
+  const salePrice = flashSale
+    ? flashSale.discount_type === 'percent'
+      ? Math.max(
+          0,
+          product.retail_price - Math.min(
+            (product.retail_price * flashSale.discount_value) / 100,
+            flashSale.max_discount ?? Infinity
+          )
+        )
+      : Math.max(0, product.retail_price - flashSale.discount_value)
+    : null
+  const displayPrice = salePrice ?? product.retail_price
 
   const handleAddToCart = () => {
     addToCart({
@@ -27,7 +42,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
       name: product.name,
       slug: product.slug,
       image_url: product.image_url,
-      retail_price: product.retail_price,
+      retail_price: displayPrice,
       quantity: 1,
       inventory_quantity: product.inventory_quantity,
       shipping_eligible: product.shipping_eligible,
@@ -58,9 +73,9 @@ export function ProductCard({ product, className }: ProductCardProps) {
             </span>
           </div>
         )}
-        {product.compare_at_price && product.compare_at_price > product.retail_price && (
+        {(flashSale || (product.compare_at_price && product.compare_at_price > product.retail_price)) && (
           <div className="absolute top-2 left-2 bg-brand-orange text-white text-xs font-bold px-2 py-1 rounded-full">
-            SALE
+            {flashSale ? flashSale.badge_label : 'SALE'}
           </div>
         )}
       </Link>
@@ -79,13 +94,17 @@ export function ProductCard({ product, className }: ProductCardProps) {
           <p className="text-xs text-gray-500">{product.brand}{product.size ? ` · ${product.size}` : ''}</p>
         )}
 
+        {flashSale && (
+          <FlashSaleCountdown endsAt={flashSale.ends_at} badgeLabel="" className="text-xs py-1 px-2" />
+        )}
+
         <div className="flex items-center gap-2 mt-auto">
-          <span className="text-base font-bold text-brand-charcoal">
-            {formatPrice(product.retail_price)}
+          <span className={`text-base font-bold ${flashSale ? 'text-brand-orange' : 'text-brand-charcoal'}`}>
+            {formatPrice(displayPrice)}
           </span>
-          {product.compare_at_price && product.compare_at_price > product.retail_price && (
+          {(flashSale || (product.compare_at_price && product.compare_at_price > product.retail_price)) && (
             <span className="text-xs text-gray-400 line-through">
-              {formatPrice(product.compare_at_price)}
+              {formatPrice(flashSale ? product.retail_price : product.compare_at_price!)}
             </span>
           )}
         </div>

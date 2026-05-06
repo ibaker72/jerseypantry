@@ -121,6 +121,50 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     console.log(`⭐ Awarded ${pointsEarned} pts to user ${userId}`)
   }
 
+  // Increment promotion usage counts
+  if (Array.isArray(order.promotion_ids) && order.promotion_ids.length > 0) {
+    for (const promoId of order.promotion_ids) {
+      await supabase.rpc('increment_promotion_usage', { p_promotion_id: promoId })
+    }
+  }
+
+  // Credit referral on user's first completed order
+  if (userId) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('referred_by')
+      .eq('id', userId)
+      .single()
+
+    if (profile?.referred_by) {
+      // Check if this is their first paid order
+      const { count } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'paid')
+
+      if (count === 1) {
+        // Find the pending referral
+        const { data: referral } = await supabase
+          .from('referrals')
+          .select('id, referrer_id, referrer_credit, referred_credit')
+          .eq('referred_user_id', userId)
+          .eq('status', 'pending')
+          .single()
+
+        if (referral) {
+          await Promise.all([
+            supabase.rpc('add_store_credit', { p_user_id: referral.referrer_id, p_amount: referral.referrer_credit }),
+            supabase.rpc('add_store_credit', { p_user_id: userId, p_amount: referral.referred_credit }),
+            supabase.from('referrals').update({ status: 'credited', credited_at: new Date().toISOString() }).eq('id', referral.id),
+          ])
+          console.log(`🎁 Referral credited: referrer ${referral.referrer_id} +$${referral.referrer_credit}, referred ${userId} +$${referral.referred_credit}`)
+        }
+      }
+    }
+  }
+
   // Clear saved cart so abandoned-cart email won't fire for paid orders
   if (order.email) {
     await supabase.from('saved_carts').delete().eq('email', order.email)

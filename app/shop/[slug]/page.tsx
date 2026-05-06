@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ProductBadgeList } from '@/components/shop/ProductBadge'
 import { ProductCard } from '@/components/shop/ProductCard'
 import { AddToCartButton } from './AddToCartButton'
+import { SubscribeButton } from './SubscribeButton'
 import { formatPrice } from '@/lib/utils/format'
 import { Truck, Package, CheckCircle, XCircle } from 'lucide-react'
 import type { Product, Category } from '@/types'
@@ -133,6 +134,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
 
           <AddToCartButton product={p as Product} />
+
+          {/* Subscribe & Save — only for delivery/shipping eligible products */}
+          {p.inventory_quantity > 0 && (p.delivery_eligible || p.shipping_eligible) && (
+            <SubscribeButton product={p as Product} />
+          )}
         </div>
       </div>
 

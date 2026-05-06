@@ -3,9 +3,9 @@ import { checkoutSchema } from '@/lib/validators/cart'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { getStripe } from '@/lib/stripe/client'
-import { calculatePricing, LOYALTY_POINTS_PER_DOLLAR } from '@/lib/pricing/calculate'
+import { calculatePricing, applyPromotions, LOYALTY_POINTS_PER_DOLLAR } from '@/lib/pricing/calculate'
 import { checkDeliveryEligibility, validateFulfillmentItems } from '@/lib/delivery/zones'
-import type { CartItem, DeliveryZone, Product, Coupon } from '@/types'
+import type { CartItem, DeliveryZone, Product, Coupon, Promotion } from '@/types'
 
 export async function POST(req: NextRequest) {
   try {
@@ -99,6 +99,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Load active promotions (auto-apply)
+    const { data: activePromos } = await supabase
+      .from('promotions')
+      .select('*')
+      .eq('is_active', true)
+      .or('starts_at.is.null,starts_at.lte.' + new Date().toISOString())
+      .or('ends_at.is.null,ends_at.gte.' + new Date().toISOString())
+    const promotions = (activePromos ?? []) as Promotion[]
+
     // Loyalty redemption validation
     let validatedLoyaltyPoints = 0
     if (loyalty_points_to_redeem > 0 && user) {
@@ -117,7 +126,16 @@ export async function POST(req: NextRequest) {
       zoneFreeMinimum,
       couponType,
       couponValue,
-      validatedLoyaltyPoints
+      validatedLoyaltyPoints,
+      promotions
+    )
+
+    // Track which promos were applied (for DB + increment usage)
+    const { appliedIds: appliedPromoIds } = applyPromotions(
+      cartItems,
+      pricing.subtotal,
+      fulfillment_method === 'shipping' ? 8.99 : 0,
+      promotions
     )
 
     // Upsert customer record for logged-in users
@@ -159,6 +177,7 @@ export async function POST(req: NextRequest) {
         notes: coupon_code ? `Coupon: ${coupon_code}` : null,
         customer_id: customerId,
         user_id: user?.id ?? null,
+        promotion_ids: appliedPromoIds,
       })
       .select('id')
       .single()

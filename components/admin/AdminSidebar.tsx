@@ -11,6 +11,9 @@ import {
   MapPin,
   Building2,
   LogOut,
+  Zap,
+  Tag,
+  RefreshCw,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -21,6 +24,9 @@ const navItems = [
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/admin/inventory', label: 'Low Stock', icon: TrendingDown },
+  { href: '/admin/flash-sales', label: 'Flash Sales', icon: Zap },
+  { href: '/admin/promotions', label: 'Promotions', icon: Tag },
+  { href: '/admin/subscriptions', label: 'Subscriptions', icon: RefreshCw },
   { href: '/admin/import', label: 'CSV Import', icon: Upload },
   { href: '/admin/delivery-zones', label: 'Delivery Zones', icon: MapPin },
   { href: '/admin/office-refill-leads', label: 'Office Leads', icon: Building2 },

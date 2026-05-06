@@ -11,6 +11,9 @@ export interface Profile {
   phone: string | null
   role: UserRole
   loyalty_points: number
+  referral_code: string | null
+  store_credit: number
+  referred_by: string | null
   created_at: string
   updated_at: string
 }
@@ -106,6 +109,8 @@ export interface Order {
   total: number
   loyalty_points_earned: number
   loyalty_points_redeemed: number
+  store_credit_redeemed: number
+  promotion_ids: string[]
   stripe_checkout_session_id: string | null
   stripe_payment_intent_id: string | null
   delivery_address: DeliveryAddress | null
@@ -233,6 +238,77 @@ export interface SavedCart {
   email: string
   items: CartItem[]
   fulfillment_method: FulfillmentMethod
+  recovery_email_sent_at: string | null
   created_at: string
   updated_at: string
+}
+
+// Phase 4 — Growth & Retention
+
+export interface FlashSale {
+  id: string
+  title: string
+  badge_label: string
+  product_id: string | null
+  category_id: string | null
+  discount_type: 'percent' | 'fixed'
+  discount_value: number
+  max_discount: number | null
+  starts_at: string
+  ends_at: string
+  is_active: boolean
+  created_at: string
+}
+
+export type PromotionType = 'bogo' | 'category_percent' | 'spend_threshold' | 'free_shipping'
+
+export interface Promotion {
+  id: string
+  name: string
+  description: string | null
+  type: PromotionType
+  conditions: Record<string, unknown>
+  starts_at: string | null
+  ends_at: string | null
+  is_active: boolean
+  usage_count: number
+  max_uses: number | null
+  created_at: string
+}
+
+export type ReferralStatus = 'pending' | 'credited' | 'expired'
+
+export interface Referral {
+  id: string
+  referrer_id: string
+  referred_user_id: string | null
+  referred_email: string | null
+  status: ReferralStatus
+  referrer_credit: number
+  referred_credit: number
+  created_at: string
+  credited_at: string | null
+}
+
+export type SubscriptionFrequency = 'weekly' | 'biweekly' | 'monthly'
+export type SubscriptionStatus = 'active' | 'paused' | 'canceled'
+
+export interface Subscription {
+  id: string
+  user_id: string
+  product_id: string
+  quantity: number
+  frequency: SubscriptionFrequency
+  fulfillment_method: FulfillmentMethod
+  delivery_address: DeliveryAddress | null
+  postal_code: string | null
+  status: SubscriptionStatus
+  next_order_at: string
+  last_order_at: string | null
+  last_order_id: string | null
+  discount_percent: number
+  created_at: string
+  updated_at: string
+  // joined
+  product?: Product | null
 }

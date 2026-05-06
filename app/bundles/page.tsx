@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ProductCard } from '@/components/shop/ProductCard'
 import { EmptyState } from '@/components/shop/EmptyState'
@@ -32,8 +33,22 @@ export default async function BundlesPage() {
         </p>
       </div>
 
+      {/* Bundle Builder CTA */}
+      <div className="mb-8 rounded-2xl bg-amber-50 border border-amber-200 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p className="font-bold text-amber-800 text-lg">Build Your Own Bundle</p>
+          <p className="text-amber-700 text-sm mt-1">Pick any 4+ products and automatically save 10% on your custom selection.</p>
+        </div>
+        <Link
+          href="/bundles/build"
+          className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
+        >
+          Build a Bundle →
+        </Link>
+      </div>
+
       {prods.length === 0 ? (
-        <EmptyState title="No bundles yet" description="Check back soon!" icon="📦" />
+        <EmptyState title="No curated bundles yet" description="Try the Bundle Builder above to create your own!" icon="📦" />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
           {prods.map((product) => (

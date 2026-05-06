@@ -1,4 +1,4 @@
-import type { CartItem, FulfillmentMethod, PricingSummary } from '@/types'
+import type { CartItem, FulfillmentMethod, PricingSummary, Promotion } from '@/types'
 
 const SHIPPING_FEE = 8.99
 const DEFAULT_DELIVERY_FEE = 4.99
@@ -40,6 +40,49 @@ export function loyaltyPointsToAmount(points: number): number {
   return parseFloat((points / LOYALTY_POINTS_TO_DOLLAR).toFixed(2))
 }
 
+export function applyPromotions(
+  items: CartItem[],
+  subtotal: number,
+  shippingFee: number,
+  promotions: Promotion[]
+): { promoDiscount: number; promoFreeShipping: boolean; appliedIds: string[] } {
+  let promoDiscount = 0
+  let promoFreeShipping = false
+  const appliedIds: string[] = []
+
+  for (const promo of promotions) {
+    const c = promo.conditions as Record<string, unknown>
+
+    if (promo.type === 'spend_threshold') {
+      const min = Number(c.min_spend ?? 0)
+      const off = Number(c.discount_fixed ?? 0)
+      if (subtotal >= min && off > 0) {
+        promoDiscount += off
+        appliedIds.push(promo.id)
+      }
+    } else if (promo.type === 'free_shipping') {
+      const min = Number(c.min_spend ?? 0)
+      if (subtotal >= min && shippingFee > 0) {
+        promoFreeShipping = true
+        appliedIds.push(promo.id)
+      }
+    } else if (promo.type === 'category_percent') {
+      const catId = c.category_id as string
+      const pct   = Number(c.percent ?? 0)
+      const catSubtotal = items
+        .filter((i) => (i as CartItem & { category_id?: string }).category_id === catId)
+        .reduce((s, i) => s + i.retail_price * i.quantity, 0)
+      if (catSubtotal > 0 && pct > 0) {
+        promoDiscount += parseFloat(((catSubtotal * pct) / 100).toFixed(2))
+        appliedIds.push(promo.id)
+      }
+    }
+    // bogo: applied in line-item context (server-side checkout handles it)
+  }
+
+  return { promoDiscount, promoFreeShipping, appliedIds }
+}
+
 export function calculatePricing(
   items: CartItem[],
   fulfillmentMethod: FulfillmentMethod,
@@ -47,16 +90,21 @@ export function calculatePricing(
   zoneFreeMinimum?: number,
   couponType?: 'percent' | 'fixed' | null,
   couponValue?: number,
-  loyaltyPointsToRedeem: number = 0
+  loyaltyPointsToRedeem: number = 0,
+  promotions: Promotion[] = []
 ): PricingSummary {
   const subtotal = calculateSubtotal(items)
+  const rawShippingFee = fulfillmentMethod === 'shipping' ? SHIPPING_FEE : 0
+  const { promoDiscount, promoFreeShipping, appliedIds: _appliedIds } = applyPromotions(items, subtotal, rawShippingFee, promotions)
+
   const deliveryFee = fulfillmentMethod === 'local_delivery'
     ? calculateDeliveryFee(subtotal, fulfillmentMethod, zoneDeliveryFee, zoneFreeMinimum)
     : 0
-  const shippingFee = fulfillmentMethod === 'shipping' ? SHIPPING_FEE : 0
-  const discountAmount = couponType && couponValue
+  const shippingFee = promoFreeShipping ? 0 : rawShippingFee
+  const couponDiscount = couponType && couponValue
     ? calculateDiscount(subtotal, couponType, couponValue)
     : 0
+  const discountAmount = parseFloat((couponDiscount + promoDiscount).toFixed(2))
   const loyaltyRedemptionAmount = loyaltyPointsToAmount(loyaltyPointsToRedeem)
   const taxAmount = 0
   const total = Math.max(0, subtotal + deliveryFee + shippingFee + taxAmount - discountAmount - loyaltyRedemptionAmount)

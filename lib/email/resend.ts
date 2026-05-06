@@ -183,6 +183,71 @@ export async function sendOrderConfirmationEmail(payload: OrderConfirmationPaylo
   }
 }
 
+export async function sendAbandonedCartEmail(params: {
+  email: string
+  items: Array<{ name: string; quantity: number; retail_price: number }>
+  cart_id: string
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const storeName = process.env.NEXT_PUBLIC_STORE_NAME ?? 'My Corner Store'
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+
+  const itemRows = params.items
+    .map((i) => `<tr><td style="padding:6px 0;border-bottom:1px solid #eee;">${i.name}</td><td style="padding:6px 0;border-bottom:1px solid #eee;text-align:center;">${i.quantity}</td><td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;">$${(i.retail_price * i.quantity).toFixed(2)}</td></tr>`)
+    .join('')
+
+  const subtotal = params.items.reduce((s, i) => s + i.retail_price * i.quantity, 0)
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#FAF8F3;margin:0;padding:20px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#1B4332;padding:32px 40px;">
+      <h1 style="color:#fff;margin:0;font-size:24px;">${storeName}</h1>
+      <p style="color:#a7f3d0;margin:8px 0 0;">You left something behind!</p>
+    </div>
+    <div style="padding:32px 40px;">
+      <p style="font-size:16px;color:#374151;">Hey there — you left some items in your cart. They're still waiting for you:</p>
+      <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+        <thead><tr>
+          <th style="text-align:left;padding-bottom:8px;border-bottom:2px solid #e5e7eb;font-size:13px;color:#6b7280;">Item</th>
+          <th style="text-align:center;padding-bottom:8px;border-bottom:2px solid #e5e7eb;font-size:13px;color:#6b7280;">Qty</th>
+          <th style="text-align:right;padding-bottom:8px;border-bottom:2px solid #e5e7eb;font-size:13px;color:#6b7280;">Total</th>
+        </tr></thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+      <table style="width:100%;margin-top:12px;">
+        <tr><td style="font-weight:bold;font-size:16px;color:#111827;">Subtotal</td><td style="text-align:right;font-weight:bold;font-size:16px;color:#1B4332;">$${subtotal.toFixed(2)}</td></tr>
+      </table>
+      <div style="margin-top:32px;text-align:center;">
+        <a href="${siteUrl}/cart" style="background:#1B4332;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;">Complete Your Order →</a>
+      </div>
+      <p style="margin-top:24px;font-size:13px;color:#9ca3af;text-align:center;">Items are held while supplies last.</p>
+    </div>
+    <div style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:12px;color:#d1d5db;">© ${new Date().getFullYear()} ${storeName}. North Jersey's Corner Store.</p>
+    </div>
+  </div>
+</body></html>`
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `${storeName} <${fromEmail}>`,
+      to: params.email,
+      subject: `You left something in your cart`,
+      html,
+      text: `You left items in your cart at ${storeName}. Complete your order: ${siteUrl}/cart`,
+    })
+  } catch (err) {
+    console.error('Failed to send abandoned cart email:', err)
+  }
+}
+
 export async function sendOrderStatusUpdateEmail(params: {
   order_id: string
   order_number: string

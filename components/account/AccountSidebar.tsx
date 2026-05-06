@@ -2,15 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { User, Package, MapPin, LogOut, Star } from 'lucide-react'
+import { User, Package, MapPin, LogOut, Star, Users, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/cn'
 
 const NAV = [
-  { href: '/account',           label: 'Dashboard',     icon: Star },
-  { href: '/account/orders',    label: 'Order History', icon: Package },
-  { href: '/account/addresses', label: 'Addresses',     icon: MapPin },
-  { href: '/account/profile',   label: 'Profile',       icon: User },
+  { href: '/account',                  label: 'Dashboard',     icon: Star },
+  { href: '/account/orders',           label: 'Order History', icon: Package },
+  { href: '/account/subscriptions',    label: 'Subscriptions', icon: RefreshCw },
+  { href: '/account/referrals',        label: 'Referrals',     icon: Users },
+  { href: '/account/addresses',        label: 'Addresses',     icon: MapPin },
+  { href: '/account/profile',          label: 'Profile',       icon: User },
 ]
 
 export function AccountSidebar() {
