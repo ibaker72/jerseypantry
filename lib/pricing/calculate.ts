@@ -33,13 +33,21 @@ export function calculateDiscount(
   return Math.min(couponValue, subtotal)
 }
 
+export const LOYALTY_POINTS_PER_DOLLAR = 1   // points earned per $1 subtotal
+export const LOYALTY_POINTS_TO_DOLLAR  = 100  // points needed per $1 redeemed
+
+export function loyaltyPointsToAmount(points: number): number {
+  return parseFloat((points / LOYALTY_POINTS_TO_DOLLAR).toFixed(2))
+}
+
 export function calculatePricing(
   items: CartItem[],
   fulfillmentMethod: FulfillmentMethod,
   zoneDeliveryFee?: number,
   zoneFreeMinimum?: number,
   couponType?: 'percent' | 'fixed' | null,
-  couponValue?: number
+  couponValue?: number,
+  loyaltyPointsToRedeem: number = 0
 ): PricingSummary {
   const subtotal = calculateSubtotal(items)
   const deliveryFee = fulfillmentMethod === 'local_delivery'
@@ -49,8 +57,9 @@ export function calculatePricing(
   const discountAmount = couponType && couponValue
     ? calculateDiscount(subtotal, couponType, couponValue)
     : 0
-  const taxAmount = 0 // TODO: integrate Stripe Tax or manual NJ tax rate
-  const total = Math.max(0, subtotal + deliveryFee + shippingFee + taxAmount - discountAmount)
+  const loyaltyRedemptionAmount = loyaltyPointsToAmount(loyaltyPointsToRedeem)
+  const taxAmount = 0
+  const total = Math.max(0, subtotal + deliveryFee + shippingFee + taxAmount - discountAmount - loyaltyRedemptionAmount)
 
   return {
     subtotal,
@@ -58,6 +67,7 @@ export function calculatePricing(
     shipping_fee: shippingFee,
     tax_amount: taxAmount,
     discount_amount: discountAmount,
+    loyalty_redemption_amount: loyaltyRedemptionAmount,
     total: parseFloat(total.toFixed(2)),
   }
 }

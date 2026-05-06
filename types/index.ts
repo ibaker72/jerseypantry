@@ -8,7 +8,9 @@ export interface Profile {
   id: string
   email: string | null
   full_name: string | null
+  phone: string | null
   role: UserRole
+  loyalty_points: number
   created_at: string
   updated_at: string
 }
@@ -90,6 +92,7 @@ export interface Order {
   id: string
   order_number: string
   customer_id: string | null
+  user_id: string | null
   email: string
   phone: string | null
   status: OrderStatus
@@ -99,7 +102,10 @@ export interface Order {
   shipping_fee: number
   tax_amount: number
   discount_amount: number
+  loyalty_redemption_amount: number
   total: number
+  loyalty_points_earned: number
+  loyalty_points_redeemed: number
   stripe_checkout_session_id: string | null
   stripe_payment_intent_id: string | null
   delivery_address: DeliveryAddress | null
@@ -208,6 +214,7 @@ export interface CheckoutRequestBody {
   postal_code?: string
   coupon_code?: string
   delivery_address?: DeliveryAddress
+  loyalty_points_to_redeem?: number
 }
 
 export interface PricingSummary {
@@ -216,5 +223,16 @@ export interface PricingSummary {
   shipping_fee: number
   tax_amount: number
   discount_amount: number
+  loyalty_redemption_amount: number
   total: number
+}
+
+export interface SavedCart {
+  id: string
+  user_id: string | null
+  email: string
+  items: CartItem[]
+  fulfillment_method: FulfillmentMethod
+  created_at: string
+  updated_at: string
 }

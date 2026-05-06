@@ -11,6 +11,7 @@ export const checkoutSchema = z.object({
   email: z.string().email(),
   postal_code: z.string().optional(),
   coupon_code: z.string().optional(),
+  loyalty_points_to_redeem: z.number().int().min(0).optional().default(0),
   delivery_address: z
     .object({
       line1: z.string().min(1),

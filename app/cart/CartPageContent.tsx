@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Minus, Plus, X, Truck, Package, ShoppingBag, Loader2, Tag, AlertCircle } from 'lucide-react'
+import { Minus, Plus, X, Truck, Package, ShoppingBag, Loader2, Tag, AlertCircle, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,7 +12,8 @@ import { Separator } from '@/components/ui/separator'
 import { useCart } from '@/components/cart/CartContext'
 import { EmptyState } from '@/components/shop/EmptyState'
 import { formatPrice } from '@/lib/utils/format'
-import { calculatePricing } from '@/lib/pricing/calculate'
+import { calculatePricing, LOYALTY_POINTS_TO_DOLLAR } from '@/lib/pricing/calculate'
+import { createClient } from '@/lib/supabase/client'
 import type { FulfillmentMethod, DeliveryZone } from '@/types'
 
 const FULFILLMENT_OPTIONS: { value: FulfillmentMethod; label: string; desc: string; icon: React.ReactNode }[] = [
@@ -26,6 +27,7 @@ export function CartPageContent() {
   const searchParams = useSearchParams()
   const canceled = searchParams.get('canceled') === 'true'
   const { cart, itemCount, subtotal, removeFromCart, updateItemQuantity, setFulfillmentMethod, setPostalCode, setCouponCode } = useCart()
+
   const [zip, setZip] = useState(cart.postal_code)
   const [zone, setZone] = useState<DeliveryZone | null>(null)
   const [zoneLoading, setZoneLoading] = useState(false)
@@ -36,6 +38,25 @@ export function CartPageContent() {
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [email, setEmail] = useState('')
+
+  // Loyalty
+  const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null)
+  const [loyaltyToRedeem, setLoyaltyToRedeem] = useState(0)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  // Load auth + loyalty balance
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      setUserId(user.id)
+      setEmail(user.email ?? '')
+      supabase.from('profiles').select('loyalty_points, full_name').eq('id', user.id).single()
+        .then(({ data }) => {
+          if (data) setLoyaltyBalance(data.loyalty_points)
+        })
+    })
+  }, [])
 
   const checkZone = async (zipCode: string) => {
     if (!zipCode || zipCode.length < 5) return
@@ -86,8 +107,12 @@ export function CartPageContent() {
     zone?.delivery_fee,
     zone?.free_delivery_minimum,
     coupon?.type,
-    coupon?.value
+    coupon?.value,
+    loyaltyToRedeem
   )
+
+  const maxRedeemablePoints = loyaltyBalance ?? 0
+  const loyaltyRedemptionValue = loyaltyToRedeem / LOYALTY_POINTS_TO_DOLLAR
 
   const handleCheckout = async () => {
     if (!email) { setCheckoutError('Please enter your email address.'); return }
@@ -103,6 +128,7 @@ export function CartPageContent() {
           email,
           postal_code: cart.postal_code,
           coupon_code: coupon ? couponInput : undefined,
+          loyalty_points_to_redeem: loyaltyToRedeem,
         }),
       })
       const data = await res.json()
@@ -206,23 +232,13 @@ export function CartPageContent() {
               <div className="mt-4 space-y-2">
                 <Label className="text-xs">Your ZIP Code</Label>
                 <div className="flex gap-2">
-                  <Input
-                    placeholder="07501"
-                    value={zip}
-                    maxLength={5}
-                    onChange={(e) => setZip(e.target.value)}
-                    className="flex-1 text-sm"
-                  />
+                  <Input placeholder="07501" value={zip} maxLength={5} onChange={(e) => setZip(e.target.value)} className="flex-1 text-sm" />
                   <Button size="sm" onClick={() => { setPostalCode(zip); checkZone(zip); }} disabled={zoneLoading || zip.length < 5}>
                     {zoneLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Check'}
                   </Button>
                 </div>
-                {zone && (
-                  <p className="text-xs text-green-700 font-medium">✓ Delivery available in {zone.city}</p>
-                )}
-                {cart.postal_code && !zone && !zoneLoading && (
-                  <p className="text-xs text-red-600">ZIP not in delivery zone</p>
-                )}
+                {zone && <p className="text-xs text-green-700 font-medium">✓ Delivery available in {zone.city}</p>}
+                {cart.postal_code && !zone && !zoneLoading && <p className="text-xs text-red-600">ZIP not in delivery zone</p>}
               </div>
             )}
           </div>
@@ -242,6 +258,46 @@ export function CartPageContent() {
             {coupon && <p className="text-xs text-green-700 font-medium mt-2">✓ Coupon applied!</p>}
           </div>
 
+          {/* Loyalty points — only for logged-in users with a balance */}
+          {userId && loyaltyBalance !== null && loyaltyBalance >= 100 && (
+            <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
+              <h2 className="font-semibold text-brand-charcoal mb-3 flex items-center gap-2">
+                <Star className="h-4 w-4 text-brand-green" /> Corner Points
+              </h2>
+              <p className="text-xs text-gray-500 mb-3">
+                You have <strong className="text-brand-green">{loyaltyBalance.toLocaleString()} pts</strong>
+                {' '}(≈ ${(loyaltyBalance / LOYALTY_POINTS_TO_DOLLAR).toFixed(2)})
+              </p>
+              <div className="space-y-2">
+                <Label className="text-xs">Points to redeem (min 100)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={maxRedeemablePoints}
+                    step={100}
+                    value={loyaltyToRedeem}
+                    onChange={(e) => setLoyaltyToRedeem(Math.min(Number(e.target.value), maxRedeemablePoints))}
+                    className="flex-1 text-sm"
+                  />
+                  <Button size="sm" variant="outline" onClick={() => setLoyaltyToRedeem(maxRedeemablePoints)}>
+                    All
+                  </Button>
+                  {loyaltyToRedeem > 0 && (
+                    <Button size="sm" variant="outline" onClick={() => setLoyaltyToRedeem(0)}>
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {loyaltyToRedeem > 0 && (
+                  <p className="text-xs text-green-700 font-medium">
+                    ✓ Redeeming {loyaltyToRedeem} pts = −${loyaltyRedemptionValue.toFixed(2)} off
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Order summary */}
           <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5 space-y-3">
             <h2 className="font-semibold text-brand-charcoal">Order Summary</h2>
@@ -254,7 +310,7 @@ export function CartPageContent() {
                   <span>Delivery</span><span>{formatPrice(pricing.delivery_fee)}</span>
                 </div>
               )}
-              {pricing.delivery_fee === 0 && cart.fulfillment_method === 'local_delivery' && (
+              {pricing.delivery_fee === 0 && cart.fulfillment_method === 'local_delivery' && zone && (
                 <div className="flex justify-between text-green-700 font-medium">
                   <span>Delivery</span><span>FREE</span>
                 </div>
@@ -266,7 +322,13 @@ export function CartPageContent() {
               )}
               {pricing.discount_amount > 0 && (
                 <div className="flex justify-between text-green-700 font-medium">
-                  <span>Discount</span><span>−{formatPrice(pricing.discount_amount)}</span>
+                  <span>Coupon discount</span><span>−{formatPrice(pricing.discount_amount)}</span>
+                </div>
+              )}
+              {pricing.loyalty_redemption_amount > 0 && (
+                <div className="flex justify-between text-brand-green font-medium">
+                  <span className="flex items-center gap-1"><Star className="h-3 w-3" /> Points ({loyaltyToRedeem} pts)</span>
+                  <span>−{formatPrice(pricing.loyalty_redemption_amount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-xs text-gray-400">
@@ -280,7 +342,21 @@ export function CartPageContent() {
 
             <div className="space-y-2 pt-1">
               <Label htmlFor="email" className="text-xs">Email for order confirmation</Label>
-              <Input id="email" type="email" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="text-sm" />
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="text-sm"
+                readOnly={!!userId}
+              />
+              {userId && <p className="text-xs text-gray-400">Signed in — points will be applied to your account.</p>}
+              {!userId && (
+                <p className="text-xs text-gray-400">
+                  <Link href="/login?next=/cart" className="text-brand-green hover:underline">Sign in</Link> to earn and redeem Corner Points.
+                </p>
+              )}
             </div>
 
             {checkoutError && (

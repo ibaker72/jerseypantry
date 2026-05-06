@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkoutSchema } from '@/lib/validators/cart'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { getStripe } from '@/lib/stripe/client'
-import { calculatePricing } from '@/lib/pricing/calculate'
+import { calculatePricing, LOYALTY_POINTS_PER_DOLLAR } from '@/lib/pricing/calculate'
 import { checkDeliveryEligibility, validateFulfillmentItems } from '@/lib/delivery/zones'
 import type { CartItem, DeliveryZone, Product, Coupon } from '@/types'
 
@@ -14,8 +15,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { items, fulfillment_method, email, postal_code, coupon_code, delivery_address } = parsed.data
+    const { items, fulfillment_method, email, postal_code, coupon_code, delivery_address, loyalty_points_to_redeem } = parsed.data
     const supabase = createAdminClient()
+
+    // Detect logged-in user (best-effort — checkout works for guests too)
+    const serverClient = await createClient()
+    const { data: { user } } = await serverClient.auth.getUser()
 
     // Validate products server-side — never trust client prices
     const productIds = items.map((i) => i.product_id)
@@ -29,7 +34,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to validate products' }, { status: 500 })
     }
 
-    // Build cart items from server-side data (pre-lock quantity check)
     const cartItems: CartItem[] = []
     for (const orderItem of items) {
       const product = products.find((p) => p.id === orderItem.product_id) as Product | undefined
@@ -67,11 +71,7 @@ export async function POST(req: NextRequest) {
       if (!postal_code) {
         return NextResponse.json({ error: 'ZIP code required for local delivery' }, { status: 400 })
       }
-      const { data: zones } = await supabase
-        .from('delivery_zones')
-        .select('*')
-        .eq('is_active', true)
-
+      const { data: zones } = await supabase.from('delivery_zones').select('*').eq('is_active', true)
       const zoneCheck = checkDeliveryEligibility(postal_code, (zones ?? []) as DeliveryZone[])
       if (!zoneCheck.available) {
         return NextResponse.json({ error: zoneCheck.reason }, { status: 400 })
@@ -90,7 +90,6 @@ export async function POST(req: NextRequest) {
         .eq('code', coupon_code.toUpperCase())
         .eq('is_active', true)
         .single()
-
       if (coupon) {
         const c = coupon as Coupon
         if (!c.expires_at || new Date(c.expires_at) > new Date()) {
@@ -100,20 +99,47 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Server-side pricing (tax_amount = 0 until Stripe Tax resolves it post-payment)
+    // Loyalty redemption validation
+    let validatedLoyaltyPoints = 0
+    if (loyalty_points_to_redeem > 0 && user) {
+      const { data: profile } = await supabase.from('profiles').select('loyalty_points').eq('id', user.id).single()
+      const balance = profile?.loyalty_points ?? 0
+      if (loyalty_points_to_redeem > balance) {
+        return NextResponse.json({ error: 'Insufficient loyalty points' }, { status: 400 })
+      }
+      validatedLoyaltyPoints = loyalty_points_to_redeem
+    }
+
     const pricing = calculatePricing(
       cartItems,
       fulfillment_method,
       zoneDeliveryFee,
       zoneFreeMinimum,
       couponType,
-      couponValue
+      couponValue,
+      validatedLoyaltyPoints
     )
+
+    // Upsert customer record for logged-in users
+    let customerId: string | null = null
+    if (user) {
+      const { data: existing } = await supabase.from('customers').select('id').eq('user_id', user.id).single()
+      if (existing) {
+        customerId = existing.id
+      } else {
+        const { data: newCust } = await supabase
+          .from('customers')
+          .insert({ user_id: user.id, email })
+          .select('id')
+          .single()
+        customerId = newCust?.id ?? null
+      }
+    }
 
     // Generate order number
     const orderNumber = `CS-${Date.now().toString(36).toUpperCase()}`
 
-    // Create pending order BEFORE touching inventory
+    // Create pending order
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -126,9 +152,13 @@ export async function POST(req: NextRequest) {
         shipping_fee: pricing.shipping_fee,
         tax_amount: pricing.tax_amount,
         discount_amount: pricing.discount_amount,
+        loyalty_redemption_amount: pricing.loyalty_redemption_amount,
+        loyalty_points_redeemed: validatedLoyaltyPoints,
         total: pricing.total,
         delivery_address: delivery_address ?? null,
         notes: coupon_code ? `Coupon: ${coupon_code}` : null,
+        customer_id: customerId,
+        user_id: user?.id ?? null,
       })
       .select('id')
       .single()
@@ -151,21 +181,12 @@ export async function POST(req: NextRequest) {
       }))
     )
 
-    // ── Atomic inventory reservation ──────────────────────────
-    // Uses a SQL function with FOR UPDATE locking to prevent oversell
-    // under concurrent checkouts. Inventory is NOT decremented here —
-    // only confirmed after Stripe payment succeeds in the webhook.
-    // We do a soft pre-check here so we fail fast before hitting Stripe.
-    const reservationInput = cartItems.map((i) => ({
-      product_id: i.product_id,
-      quantity: i.quantity,
-    }))
-
+    // Atomic inventory reservation
+    const reservationInput = cartItems.map((i) => ({ product_id: i.product_id, quantity: i.quantity }))
     const { data: reservationResult, error: reservationError } = await supabase
       .rpc('reserve_inventory', { p_items: JSON.stringify(reservationInput) })
 
     if (reservationError) {
-      // Cleanup pending order
       await supabase.from('orders').update({ status: 'canceled' }).eq('id', order.id)
       console.error('Inventory reservation error:', reservationError)
       return NextResponse.json({ error: 'Could not reserve inventory. Please try again.' }, { status: 409 })
@@ -175,65 +196,64 @@ export async function POST(req: NextRequest) {
       .filter((r) => !r.reserved)
 
     if (failedReservations.length > 0) {
-      // Roll back already-reserved items by restoring their inventory
       const toRestore = (reservationResult as Array<{ reserved: boolean; product_id: string; requested: number }> ?? [])
         .filter((r) => r.reserved)
         .map((r) => ({ product_id: r.product_id, quantity: r.requested }))
-
       if (toRestore.length > 0) {
         await supabase.rpc('restore_inventory', { p_items: JSON.stringify(toRestore) })
       }
-
       await supabase.from('orders').update({ status: 'canceled' }).eq('id', order.id)
-
       const outOfStockNames = failedReservations
         .map((r) => cartItems.find((i) => i.product_id === r.product_id)?.name ?? r.product_id)
         .join(', ')
-
       return NextResponse.json({
-        error: `Sorry, some items are no longer available in the requested quantity: ${outOfStockNames}`,
+        error: `Sorry, some items are no longer available: ${outOfStockNames}`,
         out_of_stock: failedReservations.map((r) => r.product_id),
       }, { status: 409 })
     }
 
-    // ── Build Stripe Checkout session ────────────────────────
-    const stripe = getStripe()
+    // Deduct loyalty points atomically
+    if (validatedLoyaltyPoints > 0 && user) {
+      const { data: redeemed } = await supabase.rpc('redeem_loyalty_points', {
+        p_user_id: user.id,
+        p_points: validatedLoyaltyPoints,
+      })
+      if (!redeemed) {
+        await supabase.rpc('restore_inventory', { p_items: JSON.stringify(reservationInput) })
+        await supabase.from('orders').update({ status: 'canceled' }).eq('id', order.id)
+        return NextResponse.json({ error: 'Loyalty points balance changed. Please try again.' }, { status: 409 })
+      }
+    }
 
+    // Save cart for abandoned cart recovery (upsert by email)
+    if (email) {
+      await supabase.from('saved_carts').upsert(
+        { user_id: user?.id ?? null, email, items: cartItems, fulfillment_method, updated_at: new Date().toISOString() },
+        { onConflict: 'email' }
+      )
+    }
+
+    // Build Stripe Checkout session
+    const stripe = getStripe()
     const lineItems = cartItems.map((item) => ({
       price_data: {
         currency: 'usd',
-        product_data: {
-          name: item.name,
-          ...(item.image_url ? { images: [item.image_url] } : {}),
-        },
+        product_data: { name: item.name, ...(item.image_url ? { images: [item.image_url] } : {}) },
         unit_amount: Math.round(item.retail_price * 100),
-        // Required for Stripe Tax to calculate per-item
         tax_behavior: 'exclusive' as const,
       },
       quantity: item.quantity,
     }))
 
     if (pricing.delivery_fee > 0) {
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: { name: 'Local Delivery Fee' },
-          unit_amount: Math.round(pricing.delivery_fee * 100),
-          tax_behavior: 'exclusive' as const,
-        },
-        quantity: 1,
-      })
+      lineItems.push({ price_data: { currency: 'usd', product_data: { name: 'Local Delivery Fee' }, unit_amount: Math.round(pricing.delivery_fee * 100), tax_behavior: 'exclusive' as const }, quantity: 1 })
     }
     if (pricing.shipping_fee > 0) {
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: { name: 'Standard Shipping' },
-          unit_amount: Math.round(pricing.shipping_fee * 100),
-          tax_behavior: 'exclusive' as const,
-        },
-        quantity: 1,
-      })
+      lineItems.push({ price_data: { currency: 'usd', product_data: { name: 'Standard Shipping' }, unit_amount: Math.round(pricing.shipping_fee * 100), tax_behavior: 'exclusive' as const }, quantity: 1 })
+    }
+    if (pricing.loyalty_redemption_amount > 0) {
+      // Show loyalty as a negative line item so Stripe total reflects actual charge
+      lineItems.push({ price_data: { currency: 'usd', product_data: { name: `Corner Points (${validatedLoyaltyPoints} pts)` }, unit_amount: -Math.round(pricing.loyalty_redemption_amount * 100), tax_behavior: 'exclusive' as const }, quantity: 1 })
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
@@ -247,29 +267,20 @@ export async function POST(req: NextRequest) {
       metadata: {
         order_id: order.id,
         order_number: orderNumber,
-        // Pass inventory was already reserved so webhook knows not to re-decrement
         inventory_reserved: 'true',
+        user_id: user?.id ?? '',
+        loyalty_points_redeemed: String(validatedLoyaltyPoints),
       },
       success_url: `${siteUrl}/order/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/cart?canceled=true`,
-      // Collect billing address for Stripe Tax
       billing_address_collection: taxEnabled ? 'required' : 'auto',
-      // Stripe Tax — auto-calculates NJ sales tax when enabled
       ...(taxEnabled ? { automatic_tax: { enabled: true } } : {}),
       ...(pricing.discount_amount > 0 && coupon_code && couponType
-        ? {
-            discounts: [{
-              coupon: await getOrCreateStripeCoupon(stripe, coupon_code, couponType, couponValue),
-            }],
-          }
+        ? { discounts: [{ coupon: await getOrCreateStripeCoupon(stripe, coupon_code, couponType, couponValue) }] }
         : {}),
     })
 
-    // Save Stripe session ID
-    await supabase
-      .from('orders')
-      .update({ stripe_checkout_session_id: session.id })
-      .eq('id', order.id)
+    await supabase.from('orders').update({ stripe_checkout_session_id: session.id }).eq('id', order.id)
 
     return NextResponse.json({ url: session.url })
   } catch (err) {
@@ -290,11 +301,10 @@ async function getOrCreateStripeCoupon(
   } catch {
     const coupon = await stripe.coupons.create({
       id: code,
-      ...(type === 'percent'
-        ? { percent_off: value }
-        : { amount_off: Math.round(value * 100), currency: 'usd' }),
+      ...(type === 'percent' ? { percent_off: value } : { amount_off: Math.round(value * 100), currency: 'usd' }),
       duration: 'once',
     })
     return coupon.id
   }
 }
+
