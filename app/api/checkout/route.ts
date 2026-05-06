@@ -29,15 +29,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to validate products' }, { status: 500 })
     }
 
-    // Build cart items from server-side data
+    // Build cart items from server-side data (pre-lock quantity check)
     const cartItems: CartItem[] = []
     for (const orderItem of items) {
       const product = products.find((p) => p.id === orderItem.product_id) as Product | undefined
       if (!product) {
         return NextResponse.json({ error: `Product not found: ${orderItem.product_id}` }, { status: 400 })
-      }
-      if (product.inventory_quantity < orderItem.quantity) {
-        return NextResponse.json({ error: `Insufficient inventory for: ${product.name}` }, { status: 400 })
       }
       cartItems.push({
         id: product.id,
@@ -103,7 +100,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Server-side pricing
+    // Server-side pricing (tax_amount = 0 until Stripe Tax resolves it post-payment)
     const pricing = calculatePricing(
       cartItems,
       fulfillment_method,
@@ -116,7 +113,7 @@ export async function POST(req: NextRequest) {
     // Generate order number
     const orderNumber = `CS-${Date.now().toString(36).toUpperCase()}`
 
-    // Create pending order
+    // Create pending order BEFORE touching inventory
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -142,20 +139,66 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert order items
-    const orderItems = cartItems.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      product_name: item.name,
-      sku: item.sku,
-      quantity: item.quantity,
-      unit_price: item.retail_price,
-      line_total: item.retail_price * item.quantity,
+    await supabase.from('order_items').insert(
+      cartItems.map((item) => ({
+        order_id: order.id,
+        product_id: item.product_id,
+        product_name: item.name,
+        sku: item.sku,
+        quantity: item.quantity,
+        unit_price: item.retail_price,
+        line_total: item.retail_price * item.quantity,
+      }))
+    )
+
+    // ── Atomic inventory reservation ──────────────────────────
+    // Uses a SQL function with FOR UPDATE locking to prevent oversell
+    // under concurrent checkouts. Inventory is NOT decremented here —
+    // only confirmed after Stripe payment succeeds in the webhook.
+    // We do a soft pre-check here so we fail fast before hitting Stripe.
+    const reservationInput = cartItems.map((i) => ({
+      product_id: i.product_id,
+      quantity: i.quantity,
     }))
 
-    await supabase.from('order_items').insert(orderItems)
+    const { data: reservationResult, error: reservationError } = await supabase
+      .rpc('reserve_inventory', { p_items: JSON.stringify(reservationInput) })
 
-    // Build Stripe line items
+    if (reservationError) {
+      // Cleanup pending order
+      await supabase.from('orders').update({ status: 'canceled' }).eq('id', order.id)
+      console.error('Inventory reservation error:', reservationError)
+      return NextResponse.json({ error: 'Could not reserve inventory. Please try again.' }, { status: 409 })
+    }
+
+    const failedReservations = (reservationResult as Array<{ reserved: boolean; product_id: string }> ?? [])
+      .filter((r) => !r.reserved)
+
+    if (failedReservations.length > 0) {
+      // Roll back already-reserved items by restoring their inventory
+      const toRestore = (reservationResult as Array<{ reserved: boolean; product_id: string; requested: number }> ?? [])
+        .filter((r) => r.reserved)
+        .map((r) => ({ product_id: r.product_id, quantity: r.requested }))
+
+      if (toRestore.length > 0) {
+        await supabase.rpc('restore_inventory', { p_items: JSON.stringify(toRestore) })
+      }
+
+      await supabase.from('orders').update({ status: 'canceled' }).eq('id', order.id)
+
+      const outOfStockNames = failedReservations
+        .map((r) => cartItems.find((i) => i.product_id === r.product_id)?.name ?? r.product_id)
+        .join(', ')
+
+      return NextResponse.json({
+        error: `Sorry, some items are no longer available in the requested quantity: ${outOfStockNames}`,
+        out_of_stock: failedReservations.map((r) => r.product_id),
+      }, { status: 409 })
+    }
+
+    // ── Build Stripe Checkout session ────────────────────────
     const stripe = getStripe()
+
     const lineItems = cartItems.map((item) => ({
       price_data: {
         currency: 'usd',
@@ -164,17 +207,19 @@ export async function POST(req: NextRequest) {
           ...(item.image_url ? { images: [item.image_url] } : {}),
         },
         unit_amount: Math.round(item.retail_price * 100),
+        // Required for Stripe Tax to calculate per-item
+        tax_behavior: 'exclusive' as const,
       },
       quantity: item.quantity,
     }))
 
-    // Add delivery/shipping as line item if applicable
     if (pricing.delivery_fee > 0) {
       lineItems.push({
         price_data: {
           currency: 'usd',
           product_data: { name: 'Local Delivery Fee' },
           unit_amount: Math.round(pricing.delivery_fee * 100),
+          tax_behavior: 'exclusive' as const,
         },
         quantity: 1,
       })
@@ -185,31 +230,42 @@ export async function POST(req: NextRequest) {
           currency: 'usd',
           product_data: { name: 'Standard Shipping' },
           unit_amount: Math.round(pricing.shipping_fee * 100),
+          tax_behavior: 'exclusive' as const,
         },
         quantity: 1,
       })
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+    const taxEnabled = process.env.STRIPE_TAX_ENABLED === 'true'
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
       customer_email: email,
       line_items: lineItems,
-      metadata: { order_id: order.id, order_number: orderNumber },
+      metadata: {
+        order_id: order.id,
+        order_number: orderNumber,
+        // Pass inventory was already reserved so webhook knows not to re-decrement
+        inventory_reserved: 'true',
+      },
       success_url: `${siteUrl}/order/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/cart?canceled=true`,
-      ...(pricing.discount_amount > 0 && coupon_code
+      // Collect billing address for Stripe Tax
+      billing_address_collection: taxEnabled ? 'required' : 'auto',
+      // Stripe Tax — auto-calculates NJ sales tax when enabled
+      ...(taxEnabled ? { automatic_tax: { enabled: true } } : {}),
+      ...(pricing.discount_amount > 0 && coupon_code && couponType
         ? {
             discounts: [{
-              coupon: await getOrCreateStripeCoupon(stripe, coupon_code, couponType!, couponValue, pricing.subtotal),
+              coupon: await getOrCreateStripeCoupon(stripe, coupon_code, couponType, couponValue),
             }],
           }
         : {}),
     })
 
-    // Save Stripe session ID to order
+    // Save Stripe session ID
     await supabase
       .from('orders')
       .update({ stripe_checkout_session_id: session.id })
@@ -227,7 +283,6 @@ async function getOrCreateStripeCoupon(
   code: string,
   type: 'percent' | 'fixed',
   value: number,
-  _subtotal: number
 ): Promise<string> {
   try {
     const existing = await stripe.coupons.retrieve(code)

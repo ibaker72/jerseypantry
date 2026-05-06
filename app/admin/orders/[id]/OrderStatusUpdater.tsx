@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { createClient } from '@/lib/supabase/client'
 import type { OrderStatus } from '@/types'
 
 const ORDER_STATUSES: OrderStatus[] = [
@@ -24,8 +23,11 @@ export function OrderStatusUpdater({ orderId, currentStatus }: OrderStatusUpdate
 
   const handleUpdate = async () => {
     setLoading(true)
-    const supabase = createClient()
-    await supabase.from('orders').update({ status }).eq('id', orderId)
+    await fetch(`/api/admin/orders/${orderId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
     setLoading(false)
     router.refresh()
   }
@@ -45,7 +47,7 @@ export function OrderStatusUpdater({ orderId, currentStatus }: OrderStatusUpdate
           </SelectContent>
         </Select>
         <Button onClick={handleUpdate} disabled={loading || status === currentStatus}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><RefreshCw className="h-4 w-4" /> Update</>}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><RefreshCw className="h-4 w-4 mr-1" /> Update</>}
         </Button>
       </div>
     </div>

@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { slugify } from '@/lib/utils/format'
+import { ImageUpload } from '@/components/admin/ImageUpload'
 import type { Product, Category } from '@/types'
 
 interface ProductFormProps {
@@ -147,7 +148,9 @@ export function ProductForm({ product, categories }: ProductFormProps) {
               <Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label>Image URL</Label>
+              <Label>Product Image</Label>
+              <ImageUpload value={form.image_url} onChange={(url) => set('image_url', url)} />
+              <p className="text-xs text-gray-400">Or paste a URL directly:</p>
               <Input value={form.image_url} onChange={(e) => set('image_url', e.target.value)} placeholder="https://..." type="url" />
             </div>
           </div>
