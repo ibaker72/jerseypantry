@@ -14,6 +14,7 @@ import {
   Zap,
   Tag,
   RefreshCw,
+  Briefcase,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -30,6 +31,7 @@ const navItems = [
   { href: '/admin/import', label: 'CSV Import', icon: Upload },
   { href: '/admin/delivery-zones', label: 'Delivery Zones', icon: MapPin },
   { href: '/admin/office-refill-leads', label: 'Office Leads', icon: Building2 },
+  { href: '/admin/b2b/accounts', label: 'B2B Accounts', icon: Briefcase },
 ]
 
 export function AdminSidebar() {

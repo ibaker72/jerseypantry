@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2, CheckCircle, Loader2, ArrowRight } from 'lucide-react'
+import { Building2, CheckCircle, Loader2, ArrowRight, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -38,9 +38,14 @@ const businessTypes = [
   'Mechanic Shop', 'Retail Store', 'Restaurant / Café', 'Other',
 ]
 
+const PLAN_SLUGS = ['starter', 'standard', 'premium'] as const
+type PlanSlug = typeof PLAN_SLUGS[number]
+
 export default function OfficeRefillPage() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [subscribingPlan, setSubscribingPlan] = useState<PlanSlug | null>(null)
+  const [subscribeError, setSubscribeError] = useState('')
   const [form, setForm] = useState({
     business_name: '',
     contact_name: '',
@@ -50,6 +55,30 @@ export default function OfficeRefillPage() {
     estimated_budget: '',
     message: '',
   })
+
+  const handleSubscribe = async (planSlug: PlanSlug) => {
+    setSubscribingPlan(planSlug)
+    setSubscribeError('')
+    try {
+      const res = await fetch('/api/b2b/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: planSlug, billing_type: 'card' }),
+      })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else if (res.status === 401) {
+        window.location.href = `/login?next=${encodeURIComponent('/office-refill')}`
+      } else {
+        setSubscribeError(data.error ?? 'Something went wrong')
+      }
+    } catch {
+      setSubscribeError('Network error — please try again')
+    } finally {
+      setSubscribingPlan(null)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -97,53 +126,68 @@ export default function OfficeRefillPage() {
 
       {/* Plans */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-14">
-        {plans.map((plan) => (
-          <div
-            key={plan.name}
-            className={`rounded-2xl p-6 flex flex-col ${
-              plan.highlight
-                ? 'bg-brand-green text-white shadow-xl scale-105'
-                : 'bg-white border border-gray-100 shadow-sm'
-            }`}
-          >
-            {plan.highlight && (
-              <span className="text-xs font-bold bg-brand-orange text-white rounded-full px-3 py-0.5 self-start mb-3">
-                MOST POPULAR
-              </span>
-            )}
-            <h3 className={`text-xl font-bold mb-1 ${plan.highlight ? 'text-white' : 'text-brand-charcoal'}`}>
-              {plan.name}
-            </h3>
-            <p className={`text-3xl font-bold mb-2 ${plan.highlight ? 'text-white' : 'text-brand-charcoal'}`}>
-              {plan.price}
-            </p>
-            <p className={`text-sm mb-5 ${plan.highlight ? 'text-green-100' : 'text-gray-500'}`}>
-              {plan.desc}
-            </p>
-            <ul className="space-y-2 flex-1">
-              {plan.features.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm">
-                  <CheckCircle className={`h-4 w-4 shrink-0 ${plan.highlight ? 'text-green-300' : 'text-brand-green'}`} />
-                  <span className={plan.highlight ? 'text-green-100' : 'text-gray-600'}>{f}</span>
-                </li>
-              ))}
-            </ul>
-            <a
-              href="#contact-form"
-              className={`mt-6 inline-flex items-center justify-center gap-2 rounded-xl font-semibold py-2.5 text-sm transition-colors ${
+        {plans.map((plan, i) => {
+          const slug = PLAN_SLUGS[i]
+          const isLoadingThis = subscribingPlan === slug
+          return (
+            <div
+              key={plan.name}
+              className={`rounded-2xl p-6 flex flex-col ${
                 plan.highlight
-                  ? 'bg-white text-brand-green hover:bg-green-50'
-                  : 'bg-brand-green text-white hover:bg-brand-green/90'
+                  ? 'bg-brand-green text-white shadow-xl scale-105'
+                  : 'bg-white border border-gray-100 shadow-sm'
               }`}
             >
-              Get Started <ArrowRight className="h-4 w-4" />
-            </a>
-          </div>
-        ))}
+              {plan.highlight && (
+                <span className="text-xs font-bold bg-brand-orange text-white rounded-full px-3 py-0.5 self-start mb-3">
+                  MOST POPULAR
+                </span>
+              )}
+              <h3 className={`text-xl font-bold mb-1 ${plan.highlight ? 'text-white' : 'text-brand-charcoal'}`}>
+                {plan.name}
+              </h3>
+              <p className={`text-3xl font-bold mb-2 ${plan.highlight ? 'text-white' : 'text-brand-charcoal'}`}>
+                {plan.price}
+              </p>
+              <p className={`text-sm mb-5 ${plan.highlight ? 'text-green-100' : 'text-gray-500'}`}>
+                {plan.desc}
+              </p>
+              <ul className="space-y-2 flex-1">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-center gap-2 text-sm">
+                    <CheckCircle className={`h-4 w-4 shrink-0 ${plan.highlight ? 'text-green-300' : 'text-brand-green'}`} />
+                    <span className={plan.highlight ? 'text-green-100' : 'text-gray-600'}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handleSubscribe(slug)}
+                disabled={!!subscribingPlan}
+                className={`mt-6 inline-flex items-center justify-center gap-2 rounded-xl font-semibold py-2.5 text-sm transition-colors disabled:opacity-70 ${
+                  plan.highlight
+                    ? 'bg-white text-brand-green hover:bg-green-50'
+                    : 'bg-brand-green text-white hover:bg-brand-green/90'
+                }`}
+              >
+                {isLoadingThis ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <><Zap className="h-4 w-4" /> Subscribe Now</>
+                )}
+              </button>
+              <a
+                href="#contact-form"
+                className={`mt-2 text-center text-xs underline ${plan.highlight ? 'text-green-200' : 'text-gray-400'} hover:opacity-80`}
+              >
+                Or request a custom quote
+              </a>
+            </div>
+          )
+        })}
       </div>
-      <p className="text-center text-xs text-gray-400 -mt-8 mb-12">
-        Subscription billing coming soon. Fill out the form below to get started with a custom quote.
-      </p>
+      {subscribeError && (
+        <p className="text-center text-sm text-red-600 -mt-8 mb-4">{subscribeError}</p>
+      )}
 
       {/* Lead form */}
       <div id="contact-form" className="max-w-2xl mx-auto">

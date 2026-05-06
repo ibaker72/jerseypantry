@@ -1,6 +1,53 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { OrderItem } from '@/types'
 
+export async function sendB2BInviteEmail(params: {
+  to: string
+  business_name: string
+  invite_token: string
+  role: string
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const storeName = process.env.NEXT_PUBLIC_STORE_NAME ?? 'My Corner Store'
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+  const acceptUrl = `${siteUrl}/b2b/accept-invite?token=${params.invite_token}`
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#FAF8F3;margin:0;padding:20px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#1B4332;padding:32px 40px;">
+      <h1 style="color:#fff;margin:0;font-size:24px;">${storeName}</h1>
+      <p style="color:#a7f3d0;margin:8px 0 0;">You've been invited to a business account</p>
+    </div>
+    <div style="padding:32px 40px;">
+      <p style="font-size:16px;color:#374151;">You've been invited to join <strong>${params.business_name}</strong> on ${storeName} as a <strong>${params.role}</strong>.</p>
+      <div style="margin-top:32px;text-align:center;">
+        <a href="${acceptUrl}" style="background:#1B4332;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;">Accept Invitation →</a>
+      </div>
+      <p style="margin-top:24px;font-size:13px;color:#9ca3af;text-align:center;">This invite link expires in 7 days. If you didn't expect this, you can ignore this email.</p>
+    </div>
+  </div>
+</body></html>`
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `${storeName} <${fromEmail}>`,
+      to: params.to,
+      subject: `You're invited to ${params.business_name} on ${storeName}`,
+      html,
+      text: `You've been invited to join ${params.business_name} on ${storeName}. Accept here: ${acceptUrl}`,
+    })
+  } catch (err) {
+    console.error('Failed to send B2B invite email:', err)
+  }
+}
+
 interface OrderConfirmationPayload {
   order_id: string
   order_number: string

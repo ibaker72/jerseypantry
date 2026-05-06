@@ -243,6 +243,119 @@ export interface SavedCart {
   updated_at: string
 }
 
+// Phase 5 — B2B / Office Refill
+
+export type B2BPlan = 'starter' | 'standard' | 'premium'
+export type B2BBillingType = 'card' | 'net30'
+export type B2BSubscriptionStatus = 'pending' | 'active' | 'past_due' | 'canceled' | 'trialing' | 'paused'
+export type B2BMemberRole = 'owner' | 'approver' | 'member'
+
+export interface BusinessAccount {
+  id: string
+  lead_id: string | null
+  business_name: string
+  contact_name: string | null
+  contact_email: string
+  contact_phone: string | null
+  business_type: string | null
+  billing_address: Record<string, string> | null
+  plan_name: B2BPlan
+  billing_type: B2BBillingType
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  subscription_status: B2BSubscriptionStatus
+  current_period_end: string | null
+  delivery_notes: string | null
+  status: 'active' | 'suspended' | 'canceled'
+  created_at: string
+  updated_at: string
+  // joined
+  members?: BusinessMember[]
+  catalog_count?: number
+}
+
+export interface BusinessMember {
+  id: string
+  business_id: string
+  user_id: string | null
+  email: string
+  role: B2BMemberRole
+  spend_limit: number | null
+  invite_token: string | null
+  invite_sent_at: string | null
+  accepted_at: string | null
+  created_at: string
+  // joined
+  profile?: Profile | null
+}
+
+export interface BusinessCatalogItem {
+  id: string
+  business_id: string
+  product_id: string
+  custom_price: number | null
+  is_active: boolean
+  created_at: string
+  // joined
+  product?: Product | null
+}
+
+export interface DeliverySchedule {
+  id: string
+  business_id: string
+  frequency: SubscriptionFrequency
+  day_of_week: number | null
+  week_of_month: number | null
+  time_window: string | null
+  delivery_address: DeliveryAddress | null
+  notes: string | null
+  is_active: boolean
+  next_delivery_at: string | null
+  last_delivery_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BusinessInvoice {
+  id: string
+  business_id: string
+  stripe_invoice_id: string | null
+  amount_due: number
+  amount_paid: number
+  status: 'draft' | 'open' | 'paid' | 'uncollectible' | 'void'
+  due_date: string | null
+  paid_at: string | null
+  invoice_pdf_url: string | null
+  created_at: string
+}
+
+export const B2B_PLANS = {
+  starter: {
+    name: 'Starter Refill',
+    price: 99,
+    priceLabel: '$99/mo',
+    items: 50,
+    frequency: 'Bi-weekly delivery',
+    stripePriceEnvKey: 'STRIPE_B2B_STARTER_PRICE_ID',
+  },
+  standard: {
+    name: 'Standard Refill',
+    price: 199,
+    priceLabel: '$199/mo',
+    items: 120,
+    frequency: 'Weekly delivery',
+    stripePriceEnvKey: 'STRIPE_B2B_STANDARD_PRICE_ID',
+  },
+  premium: {
+    name: 'Premium Refill',
+    price: 399,
+    priceLabel: '$399/mo',
+    items: null,
+    frequency: '2x weekly delivery',
+    stripePriceEnvKey: 'STRIPE_B2B_PREMIUM_PRICE_ID',
+  },
+} as const
+
 // Phase 4 — Growth & Retention
 
 export interface FlashSale {
