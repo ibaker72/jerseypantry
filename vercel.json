@@ -1,0 +1,28 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/abandoned-cart",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-subscriptions",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/openclaw-morning-report",
+      "schedule": "0 12 * * 1-5"
+    },
+    {
+      "path": "/api/cron/openclaw-weekly-pipeline",
+      "schedule": "0 12 * * 1"
+    },
+    {
+      "path": "/api/cron/openclaw-prospect-sweep",
+      "schedule": "0 14 * * 2,4"
+    },
+    {
+      "path": "/api/cron/openclaw-followup-sweep",
+      "schedule": "0 13 * * 1,3,5"
+    }
+  ]
+}
