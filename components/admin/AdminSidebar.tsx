@@ -15,6 +15,7 @@ import {
   Tag,
   RefreshCw,
   Briefcase,
+  Truck,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -32,6 +33,7 @@ const navItems = [
   { href: '/admin/delivery-zones', label: 'Delivery Zones', icon: MapPin },
   { href: '/admin/office-refill-leads', label: 'Office Leads', icon: Building2 },
   { href: '/admin/b2b/accounts', label: 'B2B Accounts', icon: Briefcase },
+  { href: '/admin/dispatch', label: 'Dispatcher', icon: Truck },
 ]
 
 export function AdminSidebar() {

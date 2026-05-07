@@ -1,100 +1,105 @@
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { redirect } from 'next/navigation'
-import Image from 'next/image'
-import { formatPrice } from "@/lib/utils/format"
-import { Tag } from 'lucide-react'
+'use client'
 
-export default async function B2BCatalogPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/b2b/catalog')
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { Package2, RefreshCw } from 'lucide-react'
+import { WholesaleTable } from '@/components/b2b/WholesaleTable'
+import { OrderSummarySidebar } from '@/components/b2b/OrderSummarySidebar'
+import type { WholesaleProduct, WholesaleOrderItem, WholesaleOrderSummary } from '@/types/wholesale'
 
-  const admin = createAdminClient()
+export default function WholesaleCatalogPage() {
+  const router = useRouter()
+  const [products, setProducts] = useState<WholesaleProduct[]>([])
+  const [orderItems, setOrderItems] = useState<WholesaleOrderItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const { data: member } = await admin
-    .from('business_members')
-    .select('business_id')
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .single()
+  useEffect(() => {
+    fetch('/api/b2b/wholesale-catalog')
+      .then(async (res) => {
+        if (res.status === 401) { router.push('/login?next=/b2b/catalog'); return }
+        if (res.status === 403) { router.push('/office-refill?no_account=1'); return }
+        const json = await res.json()
+        setProducts(json.products ?? [])
+      })
+      .catch(() => setError('Failed to load catalog'))
+      .finally(() => setLoading(false))
+  }, [router])
 
-  if (!member) redirect('/office-refill?no_account=1')
+  const handleOrderChange = useCallback((items: WholesaleOrderItem[]) => {
+    setOrderItems(items)
+  }, [])
 
-  const { data: catalogItems } = await admin
-    .from('business_catalogs')
-    .select('*, products(id, name, slug, price, image_url, category)')
-    .eq('business_id', member.business_id)
-    .eq('is_active', true)
-    .order('created_at', { ascending: true })
+  const handleClear = useCallback(() => setOrderItems([]), [])
 
-  const categories = Array.from(
-    new Set((catalogItems ?? []).map((i) => (i.products as any)?.category).filter(Boolean))
-  ).sort() as string[]
+  const handleSubmit = async (summary: WholesaleOrderSummary) => {
+    if (summary.items.length === 0) return
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/b2b/wholesale-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: summary.items }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Order failed')
+      router.push(`/b2b/orders?new_order=${json.order_id}`)
+    } catch (err) {
+      setError(String(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-brand-charcoal">My Catalog</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Your curated product list with negotiated pricing.
-        </p>
-      </div>
-
-      {!catalogItems || catalogItems.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-          <Tag className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="font-medium text-gray-600">No catalog items yet</p>
-          <p className="text-sm text-gray-400 mt-1">
-            Your account manager will set up your personalized catalog.
+    <div className="space-y-4">
+      {/* Page header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-charcoal flex items-center gap-2">
+            <Package2 className="w-6 h-6 text-brand-green" />
+            Wholesale Catalog
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            North Jersey · Bulk-first pricing · Same-day wholesale pickup
           </p>
         </div>
+        {!loading && (
+          <button
+            onClick={() => { setLoading(true); setError(null); fetch('/api/b2b/wholesale-catalog').then(r => r.json()).then(j => setProducts(j.products ?? [])).finally(() => setLoading(false)) }}
+            className="text-xs text-gray-400 hover:text-brand-green flex items-center gap-1 transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" /> Refresh
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />
+          ))}
+        </div>
       ) : (
-        categories.map((cat) => {
-          const items = (catalogItems ?? []).filter(
-            (i) => (i.products as any)?.category === cat
-          )
-          return (
-            <div key={cat}>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">{cat}</h2>
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
-                {items.map((item) => {
-                  const product = item.products as any
-                  const displayPrice = item.custom_price ?? product?.price ?? 0
-                  const hasDiscount = item.custom_price !== null && item.custom_price < (product?.price ?? 0)
-                  return (
-                    <div key={item.id} className="flex items-center gap-4 px-4 py-3">
-                      {product?.image_url ? (
-                        <Image
-                          src={product.image_url}
-                          alt={product.name}
-                          width={48}
-                          height={48}
-                          className="rounded-lg object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-gray-100 shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-brand-charcoal text-sm">{product?.name}</p>
-                        <p className="text-xs text-gray-400 capitalize">{product?.category}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="font-semibold text-brand-charcoal">{formatPrice(displayPrice)}</p>
-                        {hasDiscount && (
-                          <p className="text-xs text-gray-400 line-through">{formatPrice(product.price)}</p>
-                        )}
-                        {hasDiscount && (
-                          <span className="text-xs text-brand-green font-medium">Contract price</span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
+          {/* Wholesale product table */}
+          <WholesaleTable products={products} onOrderChange={handleOrderChange} />
+
+          {/* Sticky order summary */}
+          <OrderSummarySidebar
+            items={orderItems}
+            onSubmit={handleSubmit}
+            onClear={handleClear}
+            submitting={submitting}
+          />
+        </div>
       )}
     </div>
   )
