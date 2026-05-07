@@ -295,6 +295,74 @@ export async function sendAbandonedCartEmail(params: {
   }
 }
 
+// ============================================================
+// OpenClaw — B2B follow-up emails
+// ============================================================
+
+export async function sendFollowupEmail(params: {
+  to: string
+  business_name: string
+  contact_name: string | null
+  follow_up_count: number
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+
+  const storeName = process.env.NEXT_PUBLIC_STORE_NAME ?? 'My Corner Store'
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const firstName = params.contact_name?.split(' ')[0] ?? 'there'
+
+  const dayLabels: Record<number, string> = { 0: '3-day', 1: '7-day', 2: '14-day' }
+  const dayLabel = dayLabels[params.follow_up_count] ?? 'follow-up'
+
+  const subjects: Record<number, string> = {
+    0: `Office snack & drink delivery for ${params.business_name}`,
+    1: `Quick follow-up — ${storeName}`,
+    2: `Last check-in — office supply delivery`,
+  }
+
+  const bodies: Record<number, string> = {
+    0: `Hi ${firstName},\n\nI wanted to follow up on my earlier note about My Corner Store's Office Refill service.\n\nWe deliver snacks, drinks, and office essentials directly to businesses across North Jersey — weekly or bi-weekly, no minimums to get started.\n\nWould a quick 10-minute call work this week? Happy to walk you through what we stock and what a plan could look like for ${params.business_name}.\n\nBest,\nMy Corner Store Team`,
+    1: `Hi ${firstName},\n\nJust checking back in — we're still available to get ${params.business_name} set up with office snack & drink delivery.\n\nOur Starter plan is $99/month and covers weekly delivery. Most offices are up and running within a week of signing up.\n\nInterested? You can start at ${siteUrl}/office-refill or just reply here.\n\nBest,\nMy Corner Store Team`,
+    2: `Hi ${firstName},\n\nThis is my last follow-up — I don't want to fill your inbox. If the timing isn't right for ${params.business_name}, no worries at all.\n\nIf it ever makes sense to revisit snack & drink delivery for your team, we're always at ${siteUrl}/office-refill.\n\nThanks for your time,\nMy Corner Store Team`,
+  }
+
+  const subject = subjects[params.follow_up_count] ?? subjects[2]
+  const body = bodies[params.follow_up_count] ?? bodies[2]
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#FAF8F3;margin:0;padding:20px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#1B4332;padding:28px 40px;">
+      <h1 style="color:#fff;margin:0;font-size:22px;">${storeName}</h1>
+      <p style="color:#a7f3d0;margin:6px 0 0;font-size:13px;">Office Refill — North Jersey</p>
+    </div>
+    <div style="padding:32px 40px;">
+      ${body.replace(/\n/g, '<br>')}
+    </div>
+    <div style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:12px;color:#d1d5db;">© ${new Date().getFullYear()} ${storeName}. You received this because someone at your company expressed interest in our Office Refill program.</p>
+    </div>
+  </div>
+</body></html>`
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `${storeName} <${fromEmail}>`,
+      to: params.to,
+      subject: `${subject} (${dayLabel} follow-up)`,
+      html,
+      text: body,
+    })
+  } catch (err) {
+    console.error(`[OpenClaw] Failed to send ${dayLabel} follow-up to ${params.to}:`, err)
+  }
+}
+
 export async function sendOrderStatusUpdateEmail(params: {
   order_id: string
   order_number: string
