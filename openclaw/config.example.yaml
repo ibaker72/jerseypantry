@@ -1,0 +1,81 @@
+# OpenClaw configuration for My Corner Store
+# Copy this file and fill in real values before deploying.
+
+agent:
+  name: Corner Store Sales Agent
+  timezone: America/New_York
+
+store_api:
+  base_url: https://your-store.vercel.app/api/agent
+  api_key: YOUR_AGENT_API_KEY   # matches AGENT_API_KEY env var
+
+notifications:
+  telegram_chat_id: YOUR_TELEGRAM_CHAT_ID
+  default_channel: telegram
+
+# ── Scheduled tasks ──────────────────────────────────────────
+
+schedules:
+  morning_report:
+    task: tasks/daily-ops.md
+    cron: "0 8 * * 1-5"       # Mon–Fri 8am ET
+    description: Revenue snapshot + alerts + B2B summary
+
+  weekly_pipeline:
+    task: scripts/weekly-pipeline.md
+    cron: "0 8 * * 1"         # Monday 8am ET
+    description: Full funnel summary with conversion rates
+
+  prospect_sweep:
+    task: tasks/prospect.md
+    cron: "0 10 * * 2,4"      # Tue & Thu 10am ET
+    max_leads_per_run: 5
+    description: Find and create North Jersey business leads
+
+  follow_up_sweep:
+    task: tasks/follow-up.md
+    cron: "0 9 * * 1,3,5"     # Mon/Wed/Fri 9am ET
+    description: Follow-up cadence and dead-lead cleanup
+
+# ── Prospecting targets ───────────────────────────────────────
+
+prospecting:
+  service_area:
+    - Passaic
+    - Clifton
+    - Paterson
+    - Rutherford
+    - Garfield
+    - Wallington
+    - East Rutherford
+    - Lyndhurst
+
+  business_types:
+    - type: auto_dealership
+      suggested_plan: standard
+    - type: gym
+      suggested_plan: starter
+    - type: barbershop
+      suggested_plan: starter
+    - type: medical_office
+      suggested_plan: standard
+    - type: corporate_office
+      suggested_plan: premium
+
+# ── Outreach rules ────────────────────────────────────────────
+
+outreach:
+  max_per_run: 10
+  follow_up_cadence_days: [3, 7, 14]
+  mark_dead_after_attempts: 3
+  mark_dead_after_days: 30
+  min_hours_between_emails: 20
+
+# ── Close / proposal ─────────────────────────────────────────
+
+close:
+  notify_owner_on_qualified: true
+  proposal_links:
+    starter: https://your-store.vercel.app/office-refill?plan=starter
+    standard: https://your-store.vercel.app/office-refill?plan=standard
+    premium: https://your-store.vercel.app/office-refill?plan=premium

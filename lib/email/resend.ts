@@ -295,6 +295,144 @@ export async function sendAbandonedCartEmail(params: {
   }
 }
 
+const PLAN_DETAILS: Record<string, { name: string; price: string; items: string; frequency: string }> = {
+  starter: { name: 'Starter Refill', price: '$99/mo', items: '50 items', frequency: 'Bi-weekly delivery' },
+  standard: { name: 'Standard Refill', price: '$199/mo', items: '120 items', frequency: 'Weekly delivery' },
+  premium: { name: 'Premium Refill', price: '$399/mo', items: 'Unlimited items', frequency: '2x weekly delivery' },
+}
+
+const BUSINESS_TYPE_HOOKS: Record<string, string> = {
+  auto_dealership: 'Your team works long hours keeping every vehicle ready — we keep your break room stocked so they can keep their energy up.',
+  gym: 'Members and staff both need fuel. We make sure your front desk and locker rooms are always stocked.',
+  barbershop: 'When clients are in the chair for an hour, having cold drinks and snacks ready makes the whole experience better.',
+  medical_office: 'Your staff is on their feet all day. We make sure they have everything they need without anyone leaving the building.',
+  corporate_office: 'A well-stocked break room is one of the easiest ways to keep your team energized and on-site.',
+}
+
+export async function sendProspectOutreachEmail(params: {
+  to: string
+  business_name: string
+  business_type: string
+  contact_name?: string
+  plan_suggestion: string
+  custom_hook?: string
+}): Promise<{ subject: string; message_id: string | null }> {
+  const apiKey = process.env.RESEND_API_KEY
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+  const plan = PLAN_DETAILS[params.plan_suggestion] ?? PLAN_DETAILS.standard
+  const hook = params.custom_hook ?? BUSINESS_TYPE_HOOKS[params.business_type] ?? BUSINESS_TYPE_HOOKS.corporate_office
+  const greeting = params.contact_name ? `Hi ${params.contact_name.split(' ')[0]},` : 'Hi there,'
+  const subject = `Keeping ${params.business_name} stocked — My Corner Store`
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#FAF8F3;margin:0;padding:20px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#1B4332;padding:32px 40px;">
+      <h1 style="color:#fff;margin:0;font-size:22px;">My Corner Store</h1>
+      <p style="color:#a7f3d0;margin:8px 0 0;">North Jersey's Office Refill Service</p>
+    </div>
+    <div style="padding:32px 40px;">
+      <p style="font-size:15px;color:#374151;">${greeting}</p>
+      <p style="font-size:15px;color:#374151;">${hook}</p>
+      <p style="font-size:15px;color:#374151;">We're My Corner Store — a North Jersey supplier that handles scheduled deliveries of snacks, drinks, paper goods, and office supplies directly to your door. No warehouse clubs, no hassle.</p>
+      <div style="background:#f0fdf4;border-left:4px solid #1B4332;padding:16px 20px;border-radius:0 6px 6px 0;margin:24px 0;">
+        <p style="margin:0 0 6px;font-weight:bold;color:#1B4332;">${plan.name} — ${plan.price}</p>
+        <p style="margin:0;font-size:14px;color:#374151;">${plan.items} per delivery · ${plan.frequency} · cancel anytime</p>
+      </div>
+      <p style="font-size:15px;color:#374151;">Would a quick 10-minute call make sense? Or feel free to browse plans at the link below — setup takes under 5 minutes.</p>
+      <div style="margin:28px 0;text-align:center;">
+        <a href="${siteUrl}/office-refill" style="background:#1B4332;color:#fff;padding:13px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;">See Plans →</a>
+      </div>
+      <p style="font-size:13px;color:#9ca3af;">— The My Corner Store Team<br>North Jersey, NJ</p>
+    </div>
+    <div style="background:#f9fafb;padding:16px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:11px;color:#d1d5db;">You received this because your business is in our North Jersey service area. Not interested? Just reply "unsubscribe".</p>
+    </div>
+  </div>
+</body></html>`
+
+  if (!apiKey) {
+    console.log('[sendProspectOutreachEmail] no RESEND_API_KEY — skipping', params.to)
+    return { subject, message_id: null }
+  }
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    const { data, error } = await resend.emails.send({
+      from: `My Corner Store <${fromEmail}>`,
+      to: params.to,
+      subject,
+      html,
+      text: `${greeting}\n\n${hook}\n\nWe're My Corner Store — North Jersey's office refill service. ${plan.name} at ${plan.price} (${plan.items}, ${plan.frequency}).\n\nWould a quick call make sense? See plans: ${siteUrl}/office-refill\n\n— My Corner Store Team\n\nReply "unsubscribe" to opt out.`,
+    })
+    if (error) throw new Error(JSON.stringify(error))
+    return { subject, message_id: data?.id ?? null }
+  } catch (err: any) {
+    throw new Error(`Resend error: ${err.message}`)
+  }
+}
+
+export async function sendLeadFollowUpEmail(params: {
+  to: string
+  business_name: string
+  contact_name?: string
+  last_contact_days: number
+  plan_suggestion: string
+}): Promise<{ subject: string; message_id: string | null }> {
+  const apiKey = process.env.RESEND_API_KEY
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+  const plan = PLAN_DETAILS[params.plan_suggestion] ?? PLAN_DETAILS.standard
+  const greeting = params.contact_name ? `Hi ${params.contact_name.split(' ')[0]},` : 'Hi there,'
+  const subject = `Quick follow-up — ${params.business_name} office refill`
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#FAF8F3;margin:0;padding:20px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#1B4332;padding:24px 40px;">
+      <h1 style="color:#fff;margin:0;font-size:20px;">My Corner Store</h1>
+    </div>
+    <div style="padding:28px 40px;">
+      <p style="font-size:15px;color:#374151;">${greeting}</p>
+      <p style="font-size:15px;color:#374151;">I sent a note about ${params.last_contact_days} days ago about keeping ${params.business_name} stocked — just wanted to circle back in case it got buried.</p>
+      <p style="font-size:15px;color:#374151;">Our <strong>${plan.name}</strong> (${plan.price}) covers ${plan.items} delivered ${plan.frequency}. No contracts, cancel anytime.</p>
+      <div style="margin:24px 0;text-align:center;">
+        <a href="${siteUrl}/office-refill" style="background:#1B4332;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px;">Take a Look →</a>
+      </div>
+      <p style="font-size:13px;color:#9ca3af;">— My Corner Store Team</p>
+    </div>
+    <div style="background:#f9fafb;padding:14px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:11px;color:#d1d5db;">Reply "unsubscribe" and we'll remove you from our list immediately.</p>
+    </div>
+  </div>
+</body></html>`
+
+  if (!apiKey) {
+    console.log('[sendLeadFollowUpEmail] no RESEND_API_KEY — skipping', params.to)
+    return { subject, message_id: null }
+  }
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    const { data, error } = await resend.emails.send({
+      from: `My Corner Store <${fromEmail}>`,
+      to: params.to,
+      subject,
+      html,
+      text: `${greeting}\n\nCircling back on my note from ${params.last_contact_days} days ago about ${params.business_name}.\n\n${plan.name} at ${plan.price} — ${plan.items}, ${plan.frequency}.\n\nSee plans: ${siteUrl}/office-refill\n\n— My Corner Store Team\n\nReply "unsubscribe" to opt out.`,
+    })
+    if (error) throw new Error(JSON.stringify(error))
+    return { subject, message_id: data?.id ?? null }
+  } catch (err: any) {
+    throw new Error(`Resend error: ${err.message}`)
+  }
+}
+
 export async function sendOrderStatusUpdateEmail(params: {
   order_id: string
   order_number: string
