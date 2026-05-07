@@ -4,6 +4,7 @@ import './globals.css'
 import { CartProvider } from '@/components/cart/CartContext'
 import { Header } from '@/components/site/Header'
 import { Footer } from '@/components/site/Footer'
+import { MobileCartBar } from '@/components/site/MobileCartBar'
 import { ToastProvider, ToastViewport } from '@/components/ui/toast'
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, DEFAULT_OG_IMAGE } from '@/lib/seo/metadata'
 
@@ -48,8 +49,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ToastProvider>
           <CartProvider>
             <Header />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 pb-20 lg:pb-0">{children}</main>
             <Footer />
+            <MobileCartBar />
           </CartProvider>
           <ToastViewport />
         </ToastProvider>
