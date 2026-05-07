@@ -57,6 +57,41 @@ export async function GET(req: NextRequest) {
         body: { message: 'string', channel: 'string?', metadata: 'object?' },
         description: 'Send a notification through OpenClaw webhook',
       },
+      {
+        path: '/leads',
+        method: 'GET',
+        params: ['status', 'source', 'search', 'limit', 'page'],
+        description: 'List sales leads with outreach history; filter by status, source, or search term',
+      },
+      {
+        path: '/leads',
+        method: 'POST',
+        body: { business_name: 'string', email: 'string', contact_name: 'string?', phone: 'string?', business_type: 'string?', estimated_budget: 'string?', lead_source: 'string?', city: 'string?', state: 'string?', website: 'string?', notes: 'string?', agent_notes: 'string?' },
+        description: 'Create agent-prospected lead; deduplicates by email (409 if exists)',
+      },
+      {
+        path: '/leads/:id',
+        method: 'GET',
+        description: 'Full lead detail with all outreach log entries and linked business account if converted',
+      },
+      {
+        path: '/leads/:id',
+        method: 'PATCH',
+        body: { status: 'string?', notes: 'string?', agent_notes: 'string?', contact_name: 'string?', phone: 'string?', website: 'string?', estimated_budget: 'string?', business_type: 'string?' },
+        description: 'Update lead fields; status can only advance forward in pipeline',
+      },
+      {
+        path: '/outreach',
+        method: 'POST',
+        body: { lead_id: 'string', type: 'initial_outreach|follow_up', plan_suggestion: 'starter|standard|premium?', custom_hook: 'string?', sent_by: 'agent|human?' },
+        description: 'Send outreach email, log to outreach_log, advance lead status new→contacted',
+      },
+      {
+        path: '/outreach',
+        method: 'GET',
+        params: ['lead_id'],
+        description: 'Get full outreach history for a lead',
+      },
     ],
     auth: 'Bearer token — set AGENT_API_KEY env var and pass as Authorization: Bearer <key>',
   })

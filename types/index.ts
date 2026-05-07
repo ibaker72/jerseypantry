@@ -176,6 +176,11 @@ export interface Coupon {
   created_at: string
 }
 
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal_sent' | 'converted' | 'dead'
+export type LeadSource = 'organic' | 'agent_prospected' | 'referral' | 'social'
+export type OutreachType = 'email' | 'sms' | 'call' | 'note'
+export type OutreachSentBy = 'agent' | 'human'
+
 export interface OfficeRefillLead {
   id: string
   business_name: string
@@ -185,7 +190,32 @@ export interface OfficeRefillLead {
   business_type: string | null
   estimated_budget: string | null
   message: string | null
-  status: string
+  status: LeadStatus
+  lead_source: LeadSource
+  address: string | null
+  city: string | null
+  state: string | null
+  postal_code: string | null
+  website: string | null
+  notes: string | null
+  agent_notes: string | null
+  created_at: string
+  updated_at: string
+  // joined
+  outreach_log?: OutreachLogEntry[]
+}
+
+export interface OutreachLogEntry {
+  id: string
+  lead_id: string
+  type: OutreachType
+  subject: string | null
+  body_summary: string | null
+  sent_at: string
+  sent_by: OutreachSentBy
+  response_received_at: string | null
+  resend_message_id: string | null
+  notes: string | null
   created_at: string
 }
 
