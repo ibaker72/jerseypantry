@@ -91,6 +91,7 @@ export function ShopLayout({ products, categories }: ShopLayoutProps) {
             <li>
               <button
                 onClick={() => setParam('category', null)}
+                suppressHydrationWarning
                 className={`w-full text-left px-1.5 py-1 text-sm rounded-sm transition-colors ${
                   !activeCategory
                     ? 'font-bold text-orange-600'
@@ -109,6 +110,7 @@ export function ShopLayout({ products, categories }: ShopLayoutProps) {
                       activeCategory === cat.slug ? null : cat.slug
                     )
                   }
+                  suppressHydrationWarning
                   className={`w-full text-left px-1.5 py-1 text-sm rounded-sm transition-colors ${
                     activeCategory === cat.slug
                       ? 'font-bold text-orange-600'
@@ -139,6 +141,7 @@ export function ShopLayout({ products, categories }: ShopLayoutProps) {
                       activePrice === range.value ? null : range.value
                     )
                   }
+                  suppressHydrationWarning
                   className={`w-full text-left px-1.5 py-1 text-sm rounded-sm transition-colors ${
                     activePrice === range.value
                       ? 'font-bold text-orange-600'
@@ -328,6 +331,7 @@ export function ShopLayout({ products, categories }: ShopLayoutProps) {
             <select
               value={activeSort}
               onChange={(e) => setParam('sort', e.target.value)}
+              suppressHydrationWarning
               className="shrink-0 text-xs border border-gray-300 bg-white text-gray-700 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
             >
               {SORT_OPTIONS.map((opt) => (

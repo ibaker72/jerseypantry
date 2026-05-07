@@ -113,6 +113,7 @@ export function Header() {
             <select
               value={selectedCat}
               onChange={(e) => setSelectedCat(e.target.value)}
+              suppressHydrationWarning
               className="hidden sm:block h-full rounded-l-sm bg-gray-200 text-gray-800 text-[11px] font-semibold px-2 border-r border-gray-300 focus:outline-none cursor-pointer shrink-0 max-w-[130px]"
             >
               {CATEGORY_OPTIONS.map((c) => (
@@ -124,10 +125,12 @@ export function Header() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search products, brands, and categories…"
+              suppressHydrationWarning
               className="flex-1 h-full min-w-0 px-3 text-sm bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-400 sm:rounded-none rounded-l-sm"
             />
             <button
               type="submit"
+              suppressHydrationWarning
               className="h-full px-4 bg-orange-400 hover:bg-orange-500 rounded-r-sm flex items-center justify-center shrink-0"
               aria-label="Search"
             >
@@ -165,6 +168,7 @@ export function Header() {
             <button
               key={item.label}
               onClick={() => handleSubNav(item.slug)}
+              suppressHydrationWarning
               className={`shrink-0 text-xs font-medium px-2.5 py-1 whitespace-nowrap rounded-sm transition-colors ${
                 activeCategory === item.slug
                   ? 'text-white bg-slate-700'
