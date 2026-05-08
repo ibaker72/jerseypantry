@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { InventoryGrid } from '@/components/shop/InventoryGrid'
@@ -57,13 +57,13 @@ export function ShopLayout({ products, categories }: ShopLayoutProps) {
   const hasActiveFilters =
     activeCategory || inStockOnly || activePrice || activeBrand
 
-  const brands = Array.from(
-    new Set(
-      products
-        .map((p) => p.brand)
-        .filter((b): b is string => Boolean(b))
-    )
-  ).sort()
+  const brands = useMemo(
+    () =>
+      Array.from(
+        new Set(products.map((p) => p.brand).filter((b): b is string => Boolean(b)))
+      ).sort(),
+    [products]
+  )
 
   const activeCategoryName =
     categories.find((c) => c.slug === activeCategory)?.name ?? ''
@@ -287,7 +287,7 @@ export function ShopLayout({ products, categories }: ShopLayoutProps) {
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
-            <SidebarContent />
+            {SidebarContent()}
           </div>
         </div>
       )}
@@ -297,7 +297,7 @@ export function ShopLayout({ products, categories }: ShopLayoutProps) {
         {/* Sticky sidebar */}
         <aside className="hidden lg:block w-56 xl:w-64 shrink-0">
           <div className="sticky top-[82px] h-[calc(100vh-82px)] overflow-y-auto bg-white border-r border-gray-200 p-4">
-            <SidebarContent />
+            {SidebarContent()}
           </div>
         </aside>
 

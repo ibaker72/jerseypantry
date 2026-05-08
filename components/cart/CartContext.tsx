@@ -14,7 +14,7 @@ import {
 import { calculateSubtotal } from '@/lib/pricing/calculate'
 import { toast } from '@/components/ui/use-toast'
 
-interface CartContextValue {
+interface CartDataContextValue {
   cart: Cart
   itemCount: number
   subtotal: number
@@ -25,12 +25,16 @@ interface CartContextValue {
   setPostalCode: (zip: string) => void
   setCouponCode: (code: string) => void
   clearCart: () => void
+}
+
+interface CartUIContextValue {
   isOpen: boolean
   openCart: () => void
   closeCart: () => void
 }
 
-const CartContext = createContext<CartContextValue | null>(null)
+const CartDataContext = createContext<CartDataContextValue | null>(null)
+const CartUIContext = createContext<CartUIContextValue | null>(null)
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<Cart>({
@@ -108,8 +112,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  const openCart = useCallback(() => setIsOpen(true), [])
+  const closeCart = useCallback(() => setIsOpen(false), [])
+
   return (
-    <CartContext.Provider
+    <CartDataContext.Provider
       value={{
         cart,
         itemCount: cartItemCount(cart),
@@ -121,18 +128,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setPostalCode,
         setCouponCode,
         clearCart,
-        isOpen,
-        openCart: () => setIsOpen(true),
-        closeCart: () => setIsOpen(false),
       }}
     >
-      {children}
-    </CartContext.Provider>
+      <CartUIContext.Provider value={{ isOpen, openCart, closeCart }}>
+        {children}
+      </CartUIContext.Provider>
+    </CartDataContext.Provider>
   )
 }
 
-export function useCart(): CartContextValue {
-  const ctx = useContext(CartContext)
+export function useCart(): CartDataContextValue {
+  const ctx = useContext(CartDataContext)
   if (!ctx) throw new Error('useCart must be used within CartProvider')
+  return ctx
+}
+
+export function useCartUI(): CartUIContextValue {
+  const ctx = useContext(CartUIContext)
+  if (!ctx) throw new Error('useCartUI must be used within CartProvider')
   return ctx
 }

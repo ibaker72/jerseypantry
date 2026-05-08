@@ -7,21 +7,14 @@ import { useState } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { useCart } from './CartContext'
+import { useCart, useCartUI } from './CartContext'
 import { formatPrice } from '@/lib/utils/format'
 import { EmptyState } from '@/components/shop/EmptyState'
 import Link from 'next/link'
 
 export function CartDrawer() {
-  const {
-    cart,
-    itemCount,
-    subtotal,
-    isOpen,
-    closeCart,
-    removeFromCart,
-    updateItemQuantity,
-  } = useCart()
+  const { cart, itemCount, subtotal, removeFromCart, updateItemQuantity } = useCart()
+  const { isOpen, closeCart } = useCartUI()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 

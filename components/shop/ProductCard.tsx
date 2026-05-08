@@ -1,5 +1,6 @@
 'use client'
 
+import { memo, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ShoppingCart, Plus, Minus } from 'lucide-react'
@@ -31,7 +32,7 @@ interface ProductCardProps {
   className?: string
 }
 
-export function ProductCard({ product, flashSale, className }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, flashSale, className }: ProductCardProps) {
   const { cart, addToCart, updateItemQuantity } = useCart()
   const cartItem = cart.items.find((i) => i.product_id === product.id)
   const isOutOfStock = product.inventory_quantity === 0
@@ -49,7 +50,7 @@ export function ProductCard({ product, flashSale, className }: ProductCardProps)
     : null
   const displayPrice = salePrice ?? product.retail_price
 
-  const handleAddToCart = () => {
+  const handleAddToCart = useCallback(() => {
     addToCart({
       id: product.id,
       product_id: product.id,
@@ -63,7 +64,7 @@ export function ProductCard({ product, flashSale, className }: ProductCardProps)
       delivery_eligible: product.delivery_eligible,
       sku: product.sku,
     })
-  }
+  }, [addToCart, product, displayPrice])
 
   return (
     <div className={cn('group relative flex flex-col rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden', className)}>
@@ -169,4 +170,4 @@ export function ProductCard({ product, flashSale, className }: ProductCardProps)
       </div>
     </div>
   )
-}
+})
