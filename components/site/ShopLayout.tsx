@@ -76,6 +76,7 @@ export function ShopLayout({ products, categories }: ShopLayoutProps) {
           <button
             onClick={clearAllFilters}
             className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700"
+            suppressHydrationWarning
           >
             <X className="h-3.5 w-3.5" />
             Clear all filters
