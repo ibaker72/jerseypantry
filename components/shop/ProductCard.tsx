@@ -11,6 +11,20 @@ import { formatPrice } from '@/lib/utils/format'
 import type { Product, FlashSale } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  'drinks': '🥤',
+  'energy-hydration': '⚡',
+  'chips-salty-snacks': '🍿',
+  'candy-chocolate': '🍬',
+  'cookies-sweets': '🍪',
+  'coffee-tea': '☕',
+  'middle-eastern-favorites': '🌿',
+  'household-essentials': '🏠',
+  'personal-care': '🧴',
+  'bundles': '🎁',
+  'office-refill': '🏢',
+}
+
 interface ProductCardProps {
   product: Product
   flashSale?: FlashSale | null
@@ -64,7 +78,9 @@ export function ProductCard({ product, flashSale, className }: ProductCardProps)
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl">🛍️</div>
+          <div className="w-full h-full flex items-center justify-center text-4xl select-none">
+            {CATEGORY_EMOJI[product.category?.slug ?? ''] ?? '🛍️'}
+          </div>
         )}
         {isOutOfStock && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">

@@ -1,4 +1,7 @@
+import Link from 'next/link'
+import { Truck, ShoppingBag, Zap, MapPin, Star, Clock } from 'lucide-react'
 import { ShopLayout } from '@/components/site/ShopLayout'
+import { ProductCard } from '@/components/shop/ProductCard'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { createClient } from '@/lib/supabase/server'
 import { buildMetadata, localBusinessSchema } from '@/lib/seo/metadata'
@@ -53,7 +56,6 @@ export default async function HomePage({ searchParams }: PageProps) {
       : FALLBACK_CATEGORIES
 
   // ── Product query ─────────────────────────────────────────────────────────
-  // Resolve category_id from slug when filtering
   let categoryId: string | null = null
   if (category) {
     const { data: catRow } = await supabase
@@ -94,7 +96,6 @@ export default async function HomePage({ searchParams }: PageProps) {
     productQuery = productQuery.ilike('name', `%${q}%`)
   }
 
-  // Sorting
   switch (sort) {
     case 'price_asc':
       productQuery = productQuery.order('retail_price', { ascending: true })
@@ -106,7 +107,6 @@ export default async function HomePage({ searchParams }: PageProps) {
       productQuery = productQuery.order('created_at', { ascending: false })
       break
     default:
-      // featured: featured items first, then by creation date
       productQuery = productQuery
         .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false })
@@ -117,9 +117,111 @@ export default async function HomePage({ searchParams }: PageProps) {
   const { data: productsData } = await productQuery
   const products: Product[] = (productsData as Product[] | null) ?? []
 
+  const hasFilters = !!(q || category || inStock || price || brand)
+  const featuredProducts = products.filter((p) => p.is_featured).slice(0, 8)
+
   return (
     <>
       <JsonLd data={localBusinessSchema()} />
+
+      {/* ── Promo Banner ─────────────────────────────────────────────────────── */}
+      <div className="bg-brand-orange text-white text-center py-2 px-4 text-sm font-semibold">
+        <Truck className="inline h-4 w-4 mr-1.5 -mt-0.5" />
+        Free delivery on orders over $50 — North Jersey&apos;s corner store, online.{' '}
+        <Link href="/local-delivery" className="underline hover:no-underline ml-1">
+          Check your ZIP →
+        </Link>
+      </div>
+
+      {/* ── Homepage hero sections (hidden when filtering) ────────────────────── */}
+      {!hasFilters && (
+        <div className="bg-[#FAF8F3]">
+
+          {/* ── Social proof strip ──────────────────────────────────────────── */}
+          <div className="border-b border-gray-200 bg-white">
+            <div className="max-w-screen-xl mx-auto px-4 py-3 flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
+              {[
+                { icon: ShoppingBag, text: '50+ orders delivered' },
+                { icon: Zap, text: 'Same-day guarantee' },
+                { icon: MapPin, text: 'North Jersey local' },
+                { icon: Star, text: 'No minimum order' },
+                { icon: Clock, text: 'Mon–Sat · 10am–3pm' },
+              ].map(({ icon: Icon, text }) => (
+                <div key={text} className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
+                  <Icon className="h-3.5 w-3.5 text-brand-orange shrink-0" />
+                  {text}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Featured products ────────────────────────────────────────────── */}
+          {featuredProducts.length > 0 && (
+            <section className="max-w-screen-2xl mx-auto px-3 lg:px-6 pt-5 pb-2">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-brand-charcoal flex items-center gap-2">
+                  <Star className="h-4 w-4 text-brand-orange" />
+                  Featured Products
+                </h2>
+                <Link href="/?sort=featured" className="text-xs text-brand-orange hover:underline font-medium">
+                  View all →
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                {featuredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── How It Works ─────────────────────────────────────────────────── */}
+          <section className="max-w-screen-xl mx-auto px-4 py-6">
+            <h2 className="text-base font-bold text-brand-charcoal mb-4 text-center">How It Works</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                {
+                  emoji: '🛒',
+                  step: '1',
+                  title: 'Shop Online',
+                  desc: 'Browse snacks, drinks, and essentials. Look for the "Delivery Eligible" badge.',
+                },
+                {
+                  emoji: '📍',
+                  step: '2',
+                  title: 'Enter Your ZIP',
+                  desc: 'We deliver to Paterson, Clifton, Wayne, Passaic, and surrounding towns.',
+                },
+                {
+                  emoji: '🚚',
+                  step: '3',
+                  title: 'Same-Day Delivery',
+                  desc: 'Orders placed by 2pm ship today. $4.99 fee, free over $50.',
+                },
+              ].map((s) => (
+                <div key={s.step} className="flex gap-3 rounded-xl bg-white border border-gray-100 shadow-sm p-4">
+                  <div className="relative shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-brand-cream flex items-center justify-center text-2xl">
+                      {s.emoji}
+                    </div>
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-brand-orange text-white text-[10px] font-bold flex items-center justify-center">
+                      {s.step}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-brand-charcoal">{s.title}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{s.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="border-t border-gray-200 mx-4" />
+        </div>
+      )}
+
+      {/* ── Full Shop Grid ────────────────────────────────────────────────────── */}
       <ShopLayout products={products} categories={categories} />
     </>
   )

@@ -5,7 +5,8 @@ import { CartProvider } from '@/components/cart/CartContext'
 import { Header } from '@/components/site/Header'
 import { Footer } from '@/components/site/Footer'
 import { MobileCartBar } from '@/components/site/MobileCartBar'
-import { ToastProvider, ToastViewport } from '@/components/ui/toast'
+import { ToastProvider } from '@/components/ui/toast'
+import { Toaster } from '@/components/ui/toaster'
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, DEFAULT_OG_IMAGE } from '@/lib/seo/metadata'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
@@ -53,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Footer />
             <MobileCartBar />
           </CartProvider>
-          <ToastViewport />
+          <Toaster />
         </ToastProvider>
       </body>
     </html>

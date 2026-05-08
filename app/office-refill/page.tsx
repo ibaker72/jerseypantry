@@ -36,6 +36,13 @@ const plans = [
       'Dedicated account rep',
     ],
     highlight: false,
+    mix: [
+      { emoji: '🥤', label: 'Water & Soda' },
+      { emoji: '🍿', label: 'Chips & Snacks' },
+      { emoji: '🍬', label: 'Candy & Sweets' },
+      { emoji: '☕', label: 'Coffee & Tea' },
+    ],
+    mixNote: 'Curated basic mix — ideal for small waiting areas',
   },
   {
     name: 'Standard Refill',
@@ -50,6 +57,14 @@ const plans = [
       'Invoicing available',
     ],
     highlight: true,
+    mix: [
+      { emoji: '⚡', label: 'Energy Drinks' },
+      { emoji: '🥤', label: 'Drinks & Juice' },
+      { emoji: '🍿', label: 'Premium Snacks' },
+      { emoji: '🍪', label: 'Cookies & Bars' },
+      { emoji: '☕', label: 'Coffee & Pods' },
+    ],
+    mixNote: 'Popular with gyms, dealerships, and busy offices',
   },
   {
     name: 'Premium Refill',
@@ -65,6 +80,15 @@ const plans = [
       'Custom branding inserts',
     ],
     highlight: false,
+    mix: [
+      { emoji: '⚡', label: 'Energy & Sports' },
+      { emoji: '🥤', label: 'Premium Drinks' },
+      { emoji: '🍿', label: 'Snacks & Chips' },
+      { emoji: '🌿', label: 'Middle Eastern' },
+      { emoji: '☕', label: 'Keurig Pods' },
+      { emoji: '🎁', label: 'Custom Mix' },
+    ],
+    mixNote: 'Fully custom — any products, any schedule',
   },
 ]
 
@@ -133,7 +157,9 @@ export default function OfficeRefillPage() {
     contact_name: '',
     email: '',
     phone: '',
+    address: '',
     business_type: '',
+    preferred_plan: '',
     estimated_budget: '',
     message: '',
   })
@@ -328,7 +354,7 @@ export default function OfficeRefillPage() {
                     <p className={`text-sm mb-6 ${plan.highlight ? 'text-green-100' : 'text-gray-500'}`}>
                       {plan.desc}
                     </p>
-                    <ul className="space-y-3">
+                    <ul className="space-y-3 mb-5">
                       {plan.features.map((f) => (
                         <li key={f} className="flex items-start gap-2.5 text-sm">
                           <CheckCircle
@@ -338,6 +364,30 @@ export default function OfficeRefillPage() {
                         </li>
                       ))}
                     </ul>
+
+                    {/* Product mix preview */}
+                    <div className={`rounded-xl p-3 ${plan.highlight ? 'bg-white/10' : 'bg-brand-cream'}`}>
+                      <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${plan.highlight ? 'text-green-300' : 'text-gray-400'}`}>
+                        What&apos;s included
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {plan.mix.map((item) => (
+                          <span
+                            key={item.label}
+                            className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-0.5 ${
+                              plan.highlight
+                                ? 'bg-white/15 text-green-100'
+                                : 'bg-white border border-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {item.emoji} {item.label}
+                          </span>
+                        ))}
+                      </div>
+                      <p className={`text-[11px] italic ${plan.highlight ? 'text-green-300' : 'text-gray-400'}`}>
+                        {plan.mixNote}
+                      </p>
+                    </div>
                   </div>
                   <div className="px-7 pb-7 space-y-2">
                     <button
@@ -464,6 +514,14 @@ export default function OfficeRefillPage() {
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label>Business Address</Label>
+                  <Input
+                    value={form.address}
+                    onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                    placeholder="123 Main St, Paterson, NJ 07501"
+                  />
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Business Type</Label>
@@ -500,6 +558,23 @@ export default function OfficeRefillPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Preferred Plan</Label>
+                  <Select
+                    value={form.preferred_plan}
+                    onValueChange={(v) => setForm((f) => ({ ...f, preferred_plan: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a plan (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="starter">Starter — $99/mo (up to 50 items, bi-weekly)</SelectItem>
+                      <SelectItem value="standard">Standard — $199/mo (up to 120 items, weekly)</SelectItem>
+                      <SelectItem value="premium">Premium — $399/mo (unlimited, 2× weekly)</SelectItem>
+                      <SelectItem value="custom">Custom / Not sure yet</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Tell us more</Label>

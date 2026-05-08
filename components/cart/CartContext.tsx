@@ -12,6 +12,7 @@ import {
   clearCart as clearCartStorage,
 } from '@/lib/cart/storage'
 import { calculateSubtotal } from '@/lib/pricing/calculate'
+import { toast } from '@/components/ui/use-toast'
 
 interface CartContextValue {
   cart: Cart
@@ -51,8 +52,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addToCart = useCallback(
     (item: CartItem) => {
+      if (item.inventory_quantity === 0) {
+        toast({ title: 'Out of stock', description: `${item.name} is currently unavailable.`, variant: 'destructive' })
+        return
+      }
       persist(addItem(cart, item))
       setIsOpen(true)
+      toast({ title: 'Added to cart', description: item.name })
     },
     [cart, persist]
   )

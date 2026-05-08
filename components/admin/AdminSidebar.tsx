@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Briefcase,
   Truck,
+  Calculator,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -34,6 +35,7 @@ const navItems = [
   { href: '/admin/office-refill-leads', label: 'Office Leads', icon: Building2 },
   { href: '/admin/b2b/accounts', label: 'B2B Accounts', icon: Briefcase },
   { href: '/admin/dispatch', label: 'Dispatcher', icon: Truck },
+  { href: '/admin/margin-calculator', label: 'Margin Calc', icon: Calculator },
 ]
 
 export function AdminSidebar() {

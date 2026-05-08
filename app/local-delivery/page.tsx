@@ -30,7 +30,7 @@ export default async function LocalDeliveryPage() {
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold mb-3">Fast & Local, Right to Your Door</h1>
         <p className="text-green-100 max-w-xl leading-relaxed mb-6">
-          We deliver snacks, drinks, household essentials, and Middle Eastern favorites same-day across North Jersey. No minimum for delivery — just shop and we&apos;ll bring it to you.
+          We deliver snacks, drinks, household essentials, and Middle Eastern favorites same-day across North Jersey. $4.99 fee, free over $50. Mon–Sat, 10AM–3PM.
         </p>
         <Button size="xl" variant="orange" asChild>
           <Link href="/shop">Shop for Delivery</Link>
@@ -86,9 +86,9 @@ export default async function LocalDeliveryPage() {
             <h3 className="font-semibold text-brand-charcoal">Delivery Details</h3>
             {[
               'Delivery fee: $4.99 (free over $50)',
-              'Same-day delivery on orders placed before 3PM',
-              'Available 7 days a week',
-              'Delivery window: 11AM – 7PM',
+              'Order by 2PM for same-day delivery',
+              'Delivery hours: Mon–Sat, 10AM – 3PM',
+              'No Sunday delivery — check back soon',
             ].map((item) => (
               <div key={item} className="flex items-center gap-2 text-sm text-gray-700">
                 <CheckCircle className="h-4 w-4 text-brand-green shrink-0" />
