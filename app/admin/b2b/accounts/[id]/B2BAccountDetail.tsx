@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Building2, Users, BookOpen, Truck, CreditCard,
@@ -47,6 +47,16 @@ export function B2BAccountDetail({ account, members, catalog, schedules, allProd
   const [addingProduct, setAddingProduct] = useState<string | null>(null)
   const [customPriceInput, setCustomPriceInput] = useState('')
 
+  const notInCatalog = useMemo(
+    () =>
+      allProducts.filter(
+        (p) =>
+          !catalogItems.find((c) => c.product_id === p.id) &&
+          p.name.toLowerCase().includes(productSearch.toLowerCase())
+      ),
+    [allProducts, catalogItems, productSearch]
+  )
+
   // Schedule state
   const [showScheduleForm, setShowScheduleForm] = useState(false)
   const [scheduleForm, setScheduleForm] = useState({
@@ -72,11 +82,6 @@ export function B2BAccountDetail({ account, members, catalog, schedules, allProd
   }
 
   // ── Catalog ─────────────────────────────────────────────────
-  const notInCatalog = allProducts.filter(
-    (p) => !catalogItems.find((c) => c.product_id === p.id) &&
-      p.name.toLowerCase().includes(productSearch.toLowerCase())
-  )
-
   async function addToCatalog(productId: string) {
     const custom = customPriceInput ? parseFloat(customPriceInput) : null
     const res = await fetch(`/api/admin/b2b/accounts/${account.id}/catalog`, {
@@ -148,12 +153,15 @@ export function B2BAccountDetail({ account, members, catalog, schedules, allProd
     if (res.ok) setMemberList((prev) => prev.filter((m) => m.id !== id))
   }
 
-  const tabs: { key: Tab; label: string; icon: typeof Building2 }[] = [
-    { key: 'overview', label: 'Overview', icon: Building2 },
-    { key: 'catalog',  label: `Catalog (${catalogItems.length})`, icon: BookOpen },
-    { key: 'schedule', label: 'Schedule', icon: Truck },
-    { key: 'members',  label: `Members (${memberList.length})`, icon: Users },
-  ]
+  const tabs = useMemo<{ key: Tab; label: string; icon: typeof Building2 }[]>(
+    () => [
+      { key: 'overview', label: 'Overview', icon: Building2 },
+      { key: 'catalog',  label: `Catalog (${catalogItems.length})`, icon: BookOpen },
+      { key: 'schedule', label: 'Schedule', icon: Truck },
+      { key: 'members',  label: `Members (${memberList.length})`, icon: Users },
+    ],
+    [catalogItems.length, memberList.length]
+  )
 
   return (
     <div className="space-y-6">

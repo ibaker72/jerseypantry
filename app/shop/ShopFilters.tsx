@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Category } from '@/types'
 import { Search } from 'lucide-react'
-import { useCallback, useTransition } from 'react'
+import { useCallback, useTransition, useState, useRef } from 'react'
 
 interface ShopFiltersProps {
   categories: Category[]
@@ -15,6 +15,8 @@ export function ShopFilters({ categories }: ShopFiltersProps) {
   const router = useRouter()
   const sp = useSearchParams()
   const [, startTransition] = useTransition()
+  const [searchValue, setSearchValue] = useState(sp.get('q') ?? '')
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null)
 
   const update = useCallback(
     (key: string, value: string) => {
@@ -29,15 +31,25 @@ export function ShopFilters({ categories }: ShopFiltersProps) {
     [router, sp]
   )
 
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value
+      setSearchValue(value)
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+      searchTimer.current = setTimeout(() => update('q', value), 300)
+    },
+    [update]
+  )
+
   return (
     <div className="flex flex-col sm:flex-row gap-3 mb-2">
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
           placeholder="Search products…"
-          defaultValue={sp.get('q') ?? ''}
+          value={searchValue}
           className="pl-9"
-          onChange={(e) => update('q', e.target.value)}
+          onChange={handleSearchChange}
         />
       </div>
 

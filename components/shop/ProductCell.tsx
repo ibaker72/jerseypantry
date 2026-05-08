@@ -1,5 +1,6 @@
 'use client'
 
+import { memo, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Plus, Minus } from 'lucide-react'
@@ -11,7 +12,7 @@ interface ProductCellProps {
   product: Product
 }
 
-export function ProductCell({ product }: ProductCellProps) {
+export const ProductCell = memo(function ProductCell({ product }: ProductCellProps) {
   const { cart, addToCart, updateItemQuantity } = useCart()
   const cartItem = cart.items.find((i) => i.product_id === product.id)
   const isOutOfStock = product.inventory_quantity === 0
@@ -19,7 +20,7 @@ export function ProductCell({ product }: ProductCellProps) {
     product.compare_at_price != null &&
     product.compare_at_price > product.retail_price
 
-  const handleAdd = () => {
+  const handleAdd = useCallback(() => {
     addToCart({
       id: product.id,
       product_id: product.id,
@@ -33,7 +34,7 @@ export function ProductCell({ product }: ProductCellProps) {
       delivery_eligible: product.delivery_eligible,
       sku: product.sku,
     })
-  }
+  }, [addToCart, product])
 
   return (
     <div className="group border border-gray-200 hover:border-orange-400 bg-white flex flex-col transition-colors">
@@ -148,4 +149,4 @@ export function ProductCell({ product }: ProductCellProps) {
       </div>
     </div>
   )
-}
+})

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, MapPin, ShoppingCart } from 'lucide-react'
-import { useCart } from '@/components/cart/CartContext'
+import { useCart, useCartUI } from '@/components/cart/CartContext'
 import { CartDrawer } from '@/components/cart/CartDrawer'
 
 const CATEGORY_OPTIONS = [
@@ -47,7 +47,8 @@ const SUB_NAV = [
 ]
 
 export function Header() {
-  const { itemCount, openCart } = useCart()
+  const { itemCount } = useCart()
+  const { openCart } = useCartUI()
   const router = useRouter()
   const searchParams = useSearchParams()
 
