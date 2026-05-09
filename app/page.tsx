@@ -44,11 +44,19 @@ export default async function HomePage({ searchParams }: PageProps) {
   const supabase = await createClient()
 
   // ── Categories ────────────────────────────────────────────────────────────
-  const { data: categoriesData } = await supabase
+  const { data: categoriesData, error: categoriesError } = await supabase
     .from('categories')
     .select('*')
     .eq('is_active', true)
     .order('sort_order')
+
+  if (categoriesError && process.env.NODE_ENV === 'development') {
+    console.error('[categories query error]', {
+      message: categoriesError.message,
+      code: (categoriesError as any).code,
+      status: (categoriesError as any).status,
+    })
+  }
 
   const categories: Category[] =
     (categoriesData as Category[] | null)?.length
@@ -58,11 +66,19 @@ export default async function HomePage({ searchParams }: PageProps) {
   // ── Product query ─────────────────────────────────────────────────────────
   let categoryId: string | null = null
   if (category) {
-    const { data: catRow } = await supabase
+    const { data: catRow, error: catError } = await supabase
       .from('categories')
       .select('id')
       .eq('slug', category)
       .single()
+    if (catError && process.env.NODE_ENV === 'development') {
+      console.error('[category lookup error]', {
+        message: catError.message,
+        code: (catError as any).code,
+        status: (catError as any).status,
+        slug: category,
+      })
+    }
     categoryId = catRow?.id ?? null
   }
 
@@ -118,7 +134,13 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   const { data: productsData, error: productsError } = await productQuery
   if (productsError && process.env.NODE_ENV === 'development') {
-    console.error('[products query error]', productsError)
+    console.error('[products query error]', {
+      message: productsError.message,
+      code: (productsError as any).code,
+      status: (productsError as any).status,
+      details: (productsError as any).details,
+      hint: (productsError as any).hint,
+    })
   }
   const products: Product[] = (productsData as Product[] | null) ?? []
 

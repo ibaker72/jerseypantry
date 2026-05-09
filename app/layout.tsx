@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 import { CartProvider } from '@/components/cart/CartContext'
 import { Header } from '@/components/site/Header'
@@ -47,6 +48,44 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen flex flex-col bg-[#FAF8F3]" suppressHydrationWarning>
+        <Script id="strip-fdprocessedid" strategy="beforeInteractive">
+          {`(() => {
+  const strip = () => {
+    document
+      .querySelectorAll('[fdprocessedid]')
+      .forEach((el) => el.removeAttribute('fdprocessedid'))
+  }
+
+  strip()
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (!(mutation.target instanceof Element)) continue
+
+      if (mutation.type === 'attributes' && mutation.attributeName === 'fdprocessedid') {
+        mutation.target.removeAttribute('fdprocessedid')
+      }
+
+      mutation.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) return
+        if (node.hasAttribute('fdprocessedid')) {
+          node.removeAttribute('fdprocessedid')
+        }
+        node
+          .querySelectorAll('[fdprocessedid]')
+          .forEach((el) => el.removeAttribute('fdprocessedid'))
+      })
+    }
+  })
+
+  observer.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['fdprocessedid'],
+  })
+})()`}
+        </Script>
         <ToastProvider>
           <CartProvider>
             <Header />
