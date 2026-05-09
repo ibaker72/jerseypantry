@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ShoppingCart, Plus, Minus } from 'lucide-react'
@@ -9,6 +9,7 @@ import { ProductBadgeList } from './ProductBadge'
 import { FlashSaleCountdown } from './FlashSaleCountdown'
 import { useCart } from '@/components/cart/CartContext'
 import { formatPrice } from '@/lib/utils/format'
+import { getCategoryFallback } from '@/lib/utils/imageFallback'
 import type { Product, FlashSale } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
@@ -37,6 +38,7 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
   const { cart, addToCart, updateItemQuantity } = useCart()
   const cartItem = cart.items.find((i) => i.product_id === product.id)
   const isOutOfStock = product.inventory_quantity === 0
+  const [imgSrc, setImgSrc] = useState(product.image_url)
 
   const salePrice = flashSale
     ? flashSale.discount_type === 'percent'
@@ -71,13 +73,15 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
     <div className={cn('group relative flex flex-col rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden min-h-[340px]', className)}>
       {/* Image */}
       <Link href={`/shop/${product.slug}`} className="relative block aspect-square overflow-hidden bg-brand-cream">
-        {product.image_url ? (
+        {imgSrc ? (
           <Image
-            src={product.image_url}
+            src={imgSrc}
             alt={product.name}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            onError={() => setImgSrc(getCategoryFallback(product.category?.slug))}
+            unoptimized={imgSrc.includes('placehold.co')}
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#FAF8F3] via-[#EFF1F7] to-[#E8EBF4] border border-[#DDE0EA]">

@@ -1,11 +1,12 @@
 'use client'
 
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Plus, Minus } from 'lucide-react'
 import { useCart } from '@/components/cart/CartContext'
 import { formatPrice } from '@/lib/utils/format'
+import { getCategoryFallback } from '@/lib/utils/imageFallback'
 import type { Product } from '@/types'
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -31,6 +32,7 @@ export const ProductCell = memo(function ProductCell({ product }: ProductCellPro
   const { cart, addToCart, updateItemQuantity } = useCart()
   const cartItem = cart.items.find((i) => i.product_id === product.id)
   const isOutOfStock = product.inventory_quantity === 0
+  const [imgSrc, setImgSrc] = useState(product.image_url)
   const onSale =
     product.compare_at_price != null &&
     product.compare_at_price > product.retail_price
@@ -58,13 +60,15 @@ export const ProductCell = memo(function ProductCell({ product }: ProductCellPro
         href={`/shop/${product.slug}`}
         className="relative block aspect-square bg-gray-50 overflow-hidden"
       >
-        {product.image_url ? (
+        {imgSrc ? (
           <Image
-            src={product.image_url}
+            src={imgSrc}
             alt={product.name}
             fill
             className="object-cover"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 17vw"
+            onError={() => setImgSrc(getCategoryFallback(product.category?.slug))}
+            unoptimized={imgSrc.includes('placehold.co')}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#FAF8F3] via-[#EFF1F7] to-[#E8EBF4]">
