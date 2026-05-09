@@ -15,15 +15,16 @@ import { cn } from '@/lib/utils/cn'
 const CATEGORY_EMOJI: Record<string, string> = {
   'drinks': '🥤',
   'energy-hydration': '⚡',
-  'chips-salty-snacks': '🍿',
-  'candy-chocolate': '🍬',
+  'chips-salty-snacks': '🍟',
+  'candy-chocolate': '🍫',
   'cookies-sweets': '🍪',
   'coffee-tea': '☕',
-  'middle-eastern-favorites': '🌿',
-  'household-essentials': '🏠',
+  'middle-eastern-favorites': '🫒',
+  'household-essentials': '🧻',
   'personal-care': '🧴',
-  'bundles': '🎁',
+  'bundles': '📦',
   'office-refill': '🏢',
+  'local-delivery-deals': '🛵',
 }
 
 interface ProductCardProps {
@@ -67,7 +68,7 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
   }, [addToCart, product, displayPrice])
 
   return (
-    <div className={cn('group relative flex flex-col rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden', className)}>
+    <div className={cn('group relative flex flex-col rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden min-h-[340px]', className)}>
       {/* Image */}
       <Link href={`/shop/${product.slug}`} className="relative block aspect-square overflow-hidden bg-brand-cream">
         {product.image_url ? (
@@ -79,8 +80,10 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl select-none">
-            {CATEGORY_EMOJI[product.category?.slug ?? ''] ?? '🛍️'}
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#FAF8F3] via-[#EFF1F7] to-[#E8EBF4] border border-[#DDE0EA]">
+            <span className="text-5xl select-none leading-none">
+              {CATEGORY_EMOJI[product.category?.slug ?? ''] ?? '🛍️'}
+            </span>
           </div>
         )}
         {isOutOfStock && (
@@ -108,19 +111,19 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
         </Link>
 
         {product.brand && (
-          <p className="text-xs text-gray-500">{product.brand}{product.size ? ` · ${product.size}` : ''}</p>
+          <p className="text-[11px] text-gray-400 tracking-wide truncate">{product.brand}{product.size ? ` · ${product.size}` : ''}</p>
         )}
 
         {flashSale && (
           <FlashSaleCountdown endsAt={flashSale.ends_at} badgeLabel="" className="text-xs py-1 px-2" />
         )}
 
-        <div className="flex items-center gap-2 mt-auto">
-          <span className={`text-base font-bold ${flashSale ? 'text-brand-orange' : 'text-brand-charcoal'}`}>
+        <div className="flex items-baseline gap-2 mt-auto">
+          <span className={`text-lg font-extrabold ${flashSale ? 'text-brand-orange' : 'text-brand-navy'}`}>
             {formatPrice(displayPrice)}
           </span>
           {(flashSale || (product.compare_at_price && product.compare_at_price > product.retail_price)) && (
-            <span className="text-xs text-gray-400 line-through">
+            <span className="text-xs text-gray-400 line-through font-medium">
               {formatPrice(flashSale ? product.retail_price : product.compare_at_price!)}
             </span>
           )}
@@ -154,7 +157,7 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
               <Button
                 onClick={handleAddToCart}
                 size="sm"
-                className="w-full gap-1.5"
+                className="w-full gap-1.5 bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold"
               >
                 <ShoppingCart className="h-4 w-4" />
                 Add to Cart

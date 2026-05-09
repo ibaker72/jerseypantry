@@ -8,6 +8,21 @@ import { useCart } from '@/components/cart/CartContext'
 import { formatPrice } from '@/lib/utils/format'
 import type { Product } from '@/types'
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  'drinks': '🥤',
+  'energy-hydration': '⚡',
+  'chips-salty-snacks': '🍟',
+  'candy-chocolate': '🍫',
+  'cookies-sweets': '🍪',
+  'coffee-tea': '☕',
+  'middle-eastern-favorites': '🫒',
+  'household-essentials': '🧻',
+  'personal-care': '🧴',
+  'bundles': '📦',
+  'office-refill': '🏢',
+  'local-delivery-deals': '🛵',
+}
+
 interface ProductCellProps {
   product: Product
 }
@@ -52,8 +67,10 @@ export const ProductCell = memo(function ProductCell({ product }: ProductCellPro
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 17vw"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl select-none">
-            🛍️
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#FAF8F3] via-[#EFF1F7] to-[#E8EBF4]">
+            <span className="text-4xl select-none leading-none">
+              {CATEGORY_EMOJI[product.category?.slug ?? ''] ?? '🛍️'}
+            </span>
           </div>
         )}
 
