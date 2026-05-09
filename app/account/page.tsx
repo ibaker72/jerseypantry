@@ -64,7 +64,7 @@ export default async function AccountDashboard() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Store Credit</p>
-              <p className="text-2xl font-bold text-brand-green">${(p.store_credit).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-brand-green">${(p?.store_credit ?? 0).toFixed(2)}</p>
             </div>
           </div>
           <p className="text-xs text-gray-400 text-right">Applied automatically<br />at checkout</p>

@@ -28,7 +28,7 @@ export function OrderSuccessContent() {
 
       <h1 className="text-3xl font-bold text-brand-charcoal mb-3">Order Confirmed!</h1>
       <p className="text-gray-500 mb-2">
-        Thank you for your order. You'll receive a confirmation email shortly.
+        Thank you for your order. You&apos;ll receive a confirmation email shortly.
       </p>
       {sessionId && (
         <p className="text-xs text-gray-400 mb-8 font-mono">{sessionId.slice(0, 24)}…</p>

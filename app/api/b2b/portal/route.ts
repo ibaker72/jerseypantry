@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     .eq('user_id', user.id)
     .single()
 
-  const stripeCustomerId = (member?.business_accounts as { stripe_customer_id: string | null } | null)?.stripe_customer_id
+  const stripeCustomerId = (member?.business_accounts as unknown as { stripe_customer_id: string | null } | null)?.stripe_customer_id
 
   if (!stripeCustomerId) {
     return NextResponse.json({ error: 'No billing account found' }, { status: 404 })

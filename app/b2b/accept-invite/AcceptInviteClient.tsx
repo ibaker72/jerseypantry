@@ -72,8 +72,8 @@ export function AcceptInviteClient() {
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-md">
       <div className="text-center mb-6">
         <Building2 className="w-10 h-10 text-brand-green mx-auto mb-3" />
-        <h1 className="text-xl font-bold text-brand-charcoal">You've been invited</h1>
-        <p className="text-sm text-gray-500 mt-1">Join your company's Corner Store business account</p>
+        <h1 className="text-xl font-bold text-brand-charcoal">You&apos;ve been invited</h1>
+        <p className="text-sm text-gray-500 mt-1">Join your company&apos;s Corner Store business account</p>
       </div>
 
       {stage === 'loading' && (
@@ -137,7 +137,7 @@ export function AcceptInviteClient() {
       {stage === 'success' && (
         <div className="flex flex-col items-center gap-3 py-6 text-center">
           <CheckCircle className="w-10 h-10 text-green-500" />
-          <p className="font-semibold text-brand-charcoal">You're in!</p>
+          <p className="font-semibold text-brand-charcoal">You&apos;re in!</p>
           <p className="text-sm text-gray-500">Redirecting to your business portal…</p>
         </div>
       )}

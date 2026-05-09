@@ -16,7 +16,7 @@ export function ShopFilters({ categories }: ShopFiltersProps) {
   const sp = useSearchParams()
   const [, startTransition] = useTransition()
   const [searchValue, setSearchValue] = useState(sp.get('q') ?? '')
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const update = useCallback(
     (key: string, value: string) => {

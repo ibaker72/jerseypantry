@@ -93,7 +93,9 @@ export default async function HomePage({ searchParams }: PageProps) {
   }
 
   if (q) {
-    productQuery = productQuery.ilike('name', `%${q}%`)
+    productQuery = productQuery.or(
+      `name.ilike.%${q}%,brand.ilike.%${q}%,description.ilike.%${q}%,sku.ilike.%${q}%`
+    )
   }
 
   switch (sort) {
@@ -114,7 +116,10 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   productQuery = productQuery.limit(96)
 
-  const { data: productsData } = await productQuery
+  const { data: productsData, error: productsError } = await productQuery
+  if (productsError && process.env.NODE_ENV === 'development') {
+    console.error('[products query error]', productsError)
+  }
   const products: Product[] = (productsData as Product[] | null) ?? []
 
   const hasFilters = !!(q || category || inStock || price || brand)

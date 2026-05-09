@@ -33,7 +33,7 @@ export async function getWholesaleCatalog(business_id: string): Promise<Wholesal
   if (error || !catalogItems) return []
 
   const productIds = catalogItems
-    .map((i) => (i.products as { id: string } | null)?.id)
+    .map((i) => (i.products as unknown as { id: string } | null)?.id)
     .filter(Boolean) as string[]
 
   const { data: wiRecords } = await admin
@@ -47,7 +47,7 @@ export async function getWholesaleCatalog(business_id: string): Promise<Wholesal
 
   return catalogItems
     .map((item) => {
-      const product = item.products as {
+      const product = item.products as unknown as {
         id: string; name: string; slug: string; price: number
         image_url: string | null; category: string; sku: string | null
       } | null

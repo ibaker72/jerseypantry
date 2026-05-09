@@ -66,7 +66,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <JsonLd data={[
-        productSchema({ name: p.name, description: p.description, price: p.price, image: p.image_url, slug: p.slug, inStock: (p.stock_quantity ?? 0) > 0, brand: p.brand }),
+        productSchema({ name: p.name, description: p.description, price: p.retail_price, image: p.image_url, slug: p.slug, inStock: (p.inventory_quantity ?? 0) > 0, brand: p.brand }),
         breadcrumbSchema(breadcrumbs),
       ]} />
       {/* Breadcrumb */}

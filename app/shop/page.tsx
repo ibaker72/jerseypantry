@@ -36,7 +36,9 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         .eq('is_active', true)
 
       if (q) {
-        query = query.ilike('name', `%${q}%`)
+        query = query.or(
+          `name.ilike.%${q}%,brand.ilike.%${q}%,description.ilike.%${q}%,sku.ilike.%${q}%`
+        )
       }
 
       if (categorySlug && categorySlug !== 'all') {
@@ -74,6 +76,9 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       .gte('ends_at', new Date().toISOString()),
   ])
 
+  if (productsResult.error && process.env.NODE_ENV === 'development') {
+    console.error('[shop products query error]', productsResult.error)
+  }
   const products = (productsResult.data ?? []) as Product[]
   const cats = (categories ?? []) as Category[]
   const flashSales = (flashSalesRaw ?? []) as FlashSale[]

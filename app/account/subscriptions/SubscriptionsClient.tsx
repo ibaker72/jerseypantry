@@ -138,7 +138,7 @@ export function SubscriptionsClient({ initialSubs }: Props) {
       </div>
 
       <p className="text-xs text-center text-gray-400">
-        Subscriptions process automatically. You'll receive an order confirmation each time.
+        Subscriptions process automatically. You&apos;ll receive an order confirmation each time.
       </p>
     </div>
   )

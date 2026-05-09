@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createServerClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { sendCloseAssistAlert } from '@/lib/openclaw/proposals'
 
 export async function PATCH(
@@ -13,7 +13,7 @@ export async function PATCH(
   const { id } = await params
 
   // Auth check — admin only
-  const supabaseUser = createServerClient()
+  const supabaseUser = await createClient()
   const { data: { user } } = await supabaseUser.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

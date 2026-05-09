@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
   // Create order record
   const orderNumber = `WS-${Date.now().toString(36).toUpperCase()}`
-  const ba = member.business_accounts as { contact_email: string; business_name: string } | null
+  const ba = member.business_accounts as unknown as { contact_email: string; business_name: string } | null
 
   const { data: order, error: orderErr } = await admin
     .from('orders')
