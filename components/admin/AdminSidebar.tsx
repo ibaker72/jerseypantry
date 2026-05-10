@@ -17,6 +17,7 @@ import {
   Briefcase,
   Truck,
   Calculator,
+  Boxes,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -34,6 +35,7 @@ const navItems = [
   { href: '/admin/delivery-zones', label: 'Delivery Zones', icon: MapPin },
   { href: '/admin/office-refill-leads', label: 'Office Leads', icon: Building2 },
   { href: '/admin/b2b/accounts', label: 'B2B Accounts', icon: Briefcase },
+  { href: '/admin/b2b/plans', label: 'B2B Plan Baskets', icon: Boxes },
   { href: '/admin/dispatch', label: 'Dispatcher', icon: Truck },
   { href: '/admin/margin-calculator', label: 'Margin Calc', icon: Calculator },
 ]

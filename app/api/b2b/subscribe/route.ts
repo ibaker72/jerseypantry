@@ -71,6 +71,47 @@ export async function POST(req: NextRequest) {
     stripeCustomerId = customer.id
   }
 
+  // Net30 path: skip Stripe Checkout entirely. Provision the account, the
+  // invoicing cron will issue a Stripe Invoice each month.
+  if (billing_type === 'net30') {
+    if (existingBA) {
+      await supabase.from('business_accounts').update({
+        plan_name: plan,
+        billing_type: 'net30',
+        subscription_status: 'active',
+        stripe_customer_id: stripeCustomerId,
+        business_name,
+        contact_name: contact_name ?? null,
+        contact_phone: contact_phone ?? null,
+        business_type: business_type ?? null,
+      }).eq('id', existingBA.id)
+    } else {
+      const { data: ba } = await supabase.from('business_accounts').insert({
+        business_name,
+        contact_name: contact_name ?? null,
+        contact_email: user.email!,
+        contact_phone: contact_phone ?? null,
+        business_type: business_type ?? null,
+        plan_name: plan,
+        billing_type: 'net30',
+        stripe_customer_id: stripeCustomerId,
+        subscription_status: 'active',
+      }).select('id').single()
+
+      if (ba) {
+        await supabase.from('business_members').upsert({
+          business_id: ba.id,
+          user_id: user.id,
+          email: user.email!,
+          role: 'owner',
+          accepted_at: new Date().toISOString(),
+        }, { onConflict: 'business_id,user_id', ignoreDuplicates: true })
+      }
+    }
+
+    return NextResponse.json({ url: `${siteUrl}/account/business?welcome=1` })
+  }
+
   const priceId = getPriceId(plan)
 
   // If Stripe price IDs are configured, use Stripe Checkout in subscription mode
@@ -95,7 +136,6 @@ export async function POST(req: NextRequest) {
           plan,
           business_name,
         },
-        ...(billing_type === 'net30' ? { payment_settings: { payment_method_types: ['us_bank_account'] } } : {}),
       },
       success_url: `${siteUrl}/b2b/dashboard?subscribed=1`,
       cancel_url: `${siteUrl}/office-refill?canceled=1`,

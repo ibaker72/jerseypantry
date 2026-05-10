@@ -501,6 +501,246 @@ export async function sendFollowupEmail(params: {
   }
 }
 
+// ============================================================
+// Office Refill — internal lead notification
+// ============================================================
+
+export async function sendOfficeRefillLeadNotification(params: {
+  business_name: string
+  contact_name?: string | null
+  email: string
+  phone?: string | null
+  business_type?: string | null
+  estimated_budget?: string | null
+  message?: string | null
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  const notifyTo = process.env.ORDER_NOTIFICATION_EMAIL
+  if (!apiKey || !notifyTo) return
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+  const storeName = process.env.NEXT_PUBLIC_STORE_NAME ?? 'My Corner Store'
+
+  const rows = [
+    ['Business', params.business_name],
+    ['Contact', params.contact_name ?? '—'],
+    ['Email', params.email],
+    ['Phone', params.phone ?? '—'],
+    ['Type', params.business_type ?? '—'],
+    ['Budget', params.estimated_budget ?? '—'],
+    ['Message', params.message ?? '—'],
+  ]
+    .map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;color:#6b7280;">${k}</td><td style="padding:6px 0;color:#111827;">${v}</td></tr>`)
+    .join('')
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `${storeName} <${fromEmail}>`,
+      to: notifyTo,
+      subject: `New Office Refill lead — ${params.business_name}`,
+      html: `<div style="font-family:Arial,sans-serif;padding:20px;"><h2 style="color:#1B4332;">New Office Refill lead</h2><table>${rows}</table></div>`,
+      text: `New lead: ${params.business_name} (${params.email})`,
+    })
+  } catch (err) {
+    console.error('Failed to send lead notification:', err)
+  }
+}
+
+// ============================================================
+// B2B Billing — welcome / receipts / dunning / suspension
+// ============================================================
+
+const B2B_PLAN_LABELS: Record<string, string> = {
+  starter: 'Starter ($99/mo)',
+  standard: 'Standard ($199/mo)',
+  premium: 'Premium ($399/mo)',
+}
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function b2bShell(title: string, body: string): string {
+  return `
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#FAF8F3;margin:0;padding:20px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#1B4332;padding:28px 40px;">
+      <h1 style="color:#fff;margin:0;font-size:22px;">My Corner Store</h1>
+      <p style="color:#a7f3d0;margin:6px 0 0;font-size:13px;">${title}</p>
+    </div>
+    <div style="padding:32px 40px;color:#374151;font-size:15px;line-height:1.55;">${body}</div>
+    <div style="background:#f9fafb;padding:18px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:12px;color:#9ca3af;">Questions? Reply to this email or visit mycornerstore.com</p>
+    </div>
+  </div>
+</body></html>`
+}
+
+export async function sendB2BWelcomeEmail(params: {
+  to: string
+  business_name: string
+  plan: string
+  delivery_day?: number | null
+  portal_url: string
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+  const dayLabel = params.delivery_day != null ? DAY_NAMES[params.delivery_day] : null
+  const planLabel = B2B_PLAN_LABELS[params.plan] ?? params.plan
+
+  const body = `
+    <p>Welcome aboard, ${params.business_name}!</p>
+    <p>Your <strong>${planLabel}</strong> Office Refill plan is now active. Your first delivery${dayLabel ? ` is scheduled for the next ${dayLabel}` : ' will be scheduled soon'}.</p>
+    <p style="margin-top:24px;text-align:center;">
+      <a href="${params.portal_url}" style="background:#1B4332;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;">Manage Account →</a>
+    </p>
+    <p style="margin-top:20px;font-size:13px;color:#9ca3af;">— My Corner Store Team</p>`
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `My Corner Store <${fromEmail}>`,
+      to: params.to,
+      subject: `Welcome to My Corner Store — ${params.business_name}`,
+      html: b2bShell('Office Refill — Activated', body),
+      text: `Welcome ${params.business_name}! Your ${planLabel} plan is active. Manage account: ${params.portal_url}`,
+    })
+  } catch (err) {
+    console.error('Failed to send B2B welcome email:', err)
+  }
+}
+
+export async function sendB2BInvoiceReceiptEmail(params: {
+  to: string
+  business_name: string
+  amount: number
+  period_label?: string
+  invoice_pdf_url?: string | null
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+
+  const pdfBlock = params.invoice_pdf_url
+    ? `<p style="margin-top:24px;text-align:center;"><a href="${params.invoice_pdf_url}" style="background:#1B4332;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;">View Invoice (PDF) →</a></p>`
+    : ''
+
+  const body = `
+    <p>Thanks ${params.business_name} — we received your payment of <strong>$${params.amount.toFixed(2)}</strong>${params.period_label ? ` for the ${params.period_label} period` : ''}.</p>
+    ${pdfBlock}
+    <p style="margin-top:20px;font-size:13px;color:#9ca3af;">— My Corner Store Team</p>`
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `My Corner Store <${fromEmail}>`,
+      to: params.to,
+      subject: `Payment received — $${params.amount.toFixed(2)}`,
+      html: b2bShell('Payment Received', body),
+      text: `Payment received: $${params.amount.toFixed(2)}${params.invoice_pdf_url ? `\nInvoice: ${params.invoice_pdf_url}` : ''}`,
+    })
+  } catch (err) {
+    console.error('Failed to send B2B receipt email:', err)
+  }
+}
+
+export async function sendB2BDunningEmail(params: {
+  to: string
+  business_name: string
+  stage: 1 | 2 | 3
+  amount_due: number
+  due_date: string | null
+  invoice_pdf_url?: string | null
+  portal_url: string
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+
+  const stageCopy: Record<number, { subject: string; intro: string }> = {
+    1: {
+      subject: `Payment failed — please update your card`,
+      intro: `Heads up — we couldn't charge your card for this billing cycle. Please update your payment method to keep deliveries running.`,
+    },
+    2: {
+      subject: `Reminder: payment still outstanding`,
+      intro: `Friendly reminder — your most recent invoice is still outstanding. Update your card to keep your account active.`,
+    },
+    3: {
+      subject: `Final notice — account suspension imminent`,
+      intro: `This is our final notice. If we don't receive payment soon, we'll have to suspend ${params.business_name}'s deliveries until payment is restored.`,
+    },
+  }
+  const { subject, intro } = stageCopy[params.stage]
+
+  const dueLine = params.due_date
+    ? `<p>Due date: <strong>${new Date(params.due_date).toLocaleDateString()}</strong></p>`
+    : ''
+  const pdfLine = params.invoice_pdf_url
+    ? `<p style="margin-top:8px;"><a href="${params.invoice_pdf_url}" style="color:#1B4332;">View invoice (PDF)</a></p>`
+    : ''
+
+  const body = `
+    <p>${intro}</p>
+    <p>Amount due: <strong>$${params.amount_due.toFixed(2)}</strong></p>
+    ${dueLine}
+    ${pdfLine}
+    <p style="margin-top:24px;text-align:center;">
+      <a href="${params.portal_url}" style="background:#E85D04;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;">Update Payment →</a>
+    </p>
+    <p style="margin-top:20px;font-size:13px;color:#9ca3af;">— My Corner Store Team</p>`
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `My Corner Store <${fromEmail}>`,
+      to: params.to,
+      subject,
+      html: b2bShell(`Office Refill — ${params.business_name}`, body),
+      text: `${intro}\nAmount due: $${params.amount_due.toFixed(2)}\nUpdate payment: ${params.portal_url}`,
+    })
+  } catch (err) {
+    console.error('Failed to send B2B dunning email:', err)
+  }
+}
+
+export async function sendB2BSuspensionEmail(params: {
+  to: string
+  business_name: string
+  portal_url: string
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+
+  const body = `
+    <p>We've paused deliveries for <strong>${params.business_name}</strong> because the account is past due.</p>
+    <p>Update your payment method to reactivate. We'll resume deliveries on the next scheduled day after the account is current.</p>
+    <p style="margin-top:24px;text-align:center;">
+      <a href="${params.portal_url}" style="background:#1B4332;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;">Reactivate Account →</a>
+    </p>
+    <p style="margin-top:20px;font-size:13px;color:#9ca3af;">— My Corner Store Team</p>`
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `My Corner Store <${fromEmail}>`,
+      to: params.to,
+      subject: `Account suspended — ${params.business_name}`,
+      html: b2bShell('Account Suspended', body),
+      text: `Deliveries paused for ${params.business_name}. Reactivate: ${params.portal_url}`,
+    })
+  } catch (err) {
+    console.error('Failed to send B2B suspension email:', err)
+  }
+}
+
 export async function sendOrderStatusUpdateEmail(params: {
   order_id: string
   order_number: string

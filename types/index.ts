@@ -297,11 +297,40 @@ export interface BusinessAccount {
   current_period_end: string | null
   delivery_notes: string | null
   status: 'active' | 'suspended' | 'canceled'
+  dunning_stage: number
+  suspended_at: string | null
+  last_failure_at: string | null
   created_at: string
   updated_at: string
   // joined
   members?: BusinessMember[]
   catalog_count?: number
+}
+
+export interface B2BPlanItem {
+  id: string
+  plan_name: B2BPlan
+  product_id: string
+  quantity: number
+  sort_order: number
+  created_at: string
+  updated_at: string
+  // joined
+  product?: Product | null
+}
+
+export interface B2BOrderRun {
+  business_id: string
+  run_date: string
+  order_id: string | null
+  created_at: string
+}
+
+export interface B2BInvoiceRun {
+  business_id: string
+  period_start: string
+  stripe_invoice_id: string | null
+  created_at: string
 }
 
 export interface BusinessMember {
@@ -356,6 +385,8 @@ export interface BusinessInvoice {
   due_date: string | null
   paid_at: string | null
   invoice_pdf_url: string | null
+  dunning_attempts: number
+  last_dunning_sent_at: string | null
   created_at: string
 }
 
