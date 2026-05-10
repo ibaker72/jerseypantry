@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendOfficeRefillLeadNotification } from '@/lib/email/resend'
 
 const leadSchema = z.object({
   business_name: z.string().min(1),
@@ -28,7 +29,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save' }, { status: 500 })
     }
 
-    // TODO: Send notification email via Resend when RESEND_API_KEY is set
+    await sendOfficeRefillLeadNotification({
+      business_name: parsed.data.business_name,
+      contact_name: parsed.data.contact_name,
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      business_type: parsed.data.business_type,
+      estimated_budget: parsed.data.estimated_budget,
+      message: parsed.data.message,
+    })
 
     return NextResponse.json({ success: true })
   } catch (err) {

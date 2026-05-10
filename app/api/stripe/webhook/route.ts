@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe/client'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendOrderConfirmationEmail } from '@/lib/email/resend'
+import {
+  sendOrderConfirmationEmail,
+  sendB2BWelcomeEmail,
+  sendB2BInvoiceReceiptEmail,
+  sendB2BDunningEmail,
+} from '@/lib/email/resend'
 import { LOYALTY_POINTS_PER_DOLLAR } from '@/lib/pricing/calculate'
 import Stripe from 'stripe'
+
+const B2B_PORTAL_PATH = '/account/business'
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -337,21 +344,59 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   const { data: ba } = await supabase
     .from('business_accounts')
-    .select('id')
+    .select('id, business_name, contact_email, plan_name, status, dunning_stage')
     .eq('stripe_customer_id', stripeCustomerId)
     .single()
 
   if (!ba) return
 
+  const amountPaid = (invoice.amount_paid ?? 0) / 100
+
   await supabase.from('business_invoices').upsert({
     business_id: ba.id,
     stripe_invoice_id: invoice.id,
     amount_due: (invoice.amount_due ?? 0) / 100,
-    amount_paid: (invoice.amount_paid ?? 0) / 100,
+    amount_paid: amountPaid,
     status: 'paid',
     paid_at: new Date().toISOString(),
     invoice_pdf_url: invoice.invoice_pdf,
   }, { onConflict: 'stripe_invoice_id' })
+
+  // Reset dunning state and reactivate if needed
+  const update: Record<string, unknown> = { dunning_stage: 0, last_failure_at: null }
+  if (ba.status === 'suspended') {
+    update.status = 'active'
+    update.suspended_at = null
+  }
+  await supabase.from('business_accounts').update(update).eq('id', ba.id)
+
+  // Welcome email on first paid invoice
+  const { count: paidCount } = await supabase
+    .from('business_invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('business_id', ba.id)
+    .eq('status', 'paid')
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const portalUrl = `${siteUrl}${B2B_PORTAL_PATH}`
+
+  if (paidCount === 1 && ba.contact_email) {
+    await sendB2BWelcomeEmail({
+      to: ba.contact_email,
+      business_name: ba.business_name,
+      plan: ba.plan_name,
+      portal_url: portalUrl,
+    })
+  }
+
+  if (ba.contact_email && amountPaid > 0) {
+    await sendB2BInvoiceReceiptEmail({
+      to: ba.contact_email,
+      business_name: ba.business_name,
+      amount: amountPaid,
+      invoice_pdf_url: invoice.invoice_pdf ?? null,
+    })
+  }
 
   console.log(`💰 B2B invoice paid: ${invoice.id}`)
 }
@@ -363,16 +408,20 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice) {
 
   const { data: ba } = await supabase
     .from('business_accounts')
-    .select('id')
+    .select('id, business_name, contact_email, dunning_stage')
     .eq('stripe_customer_id', stripeCustomerId)
     .single()
 
   if (!ba) return
 
-  await supabase.from('business_accounts').update({ subscription_status: 'past_due' })
-    .eq('stripe_customer_id', stripeCustomerId)
+  const nowIso = new Date().toISOString()
 
-  await supabase.from('business_invoices').upsert({
+  await supabase.from('business_accounts').update({
+    subscription_status: 'past_due',
+    last_failure_at: nowIso,
+  }).eq('id', ba.id)
+
+  const { data: invoiceRow } = await supabase.from('business_invoices').upsert({
     business_id: ba.id,
     stripe_invoice_id: invoice.id,
     amount_due: (invoice.amount_due ?? 0) / 100,
@@ -380,7 +429,31 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice) {
     status: 'open',
     due_date: invoice.due_date ? new Date(invoice.due_date * 1000).toISOString() : null,
     invoice_pdf_url: invoice.invoice_pdf,
-  }, { onConflict: 'stripe_invoice_id' })
+  }, { onConflict: 'stripe_invoice_id' }).select('id, dunning_attempts').single()
+
+  // Send first dunning email immediately on failure (stage 1)
+  if (ba.dunning_stage < 1 && ba.contact_email) {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+    await sendB2BDunningEmail({
+      to: ba.contact_email,
+      business_name: ba.business_name,
+      stage: 1,
+      amount_due: (invoice.amount_due ?? 0) / 100,
+      due_date: invoice.due_date ? new Date(invoice.due_date * 1000).toISOString() : null,
+      invoice_pdf_url: invoice.invoice_pdf ?? null,
+      portal_url: `${siteUrl}${B2B_PORTAL_PATH}`,
+    })
+    await supabase.from('business_accounts').update({ dunning_stage: 1 }).eq('id', ba.id)
+    if (invoiceRow) {
+      await supabase
+        .from('business_invoices')
+        .update({
+          dunning_attempts: (invoiceRow.dunning_attempts ?? 0) + 1,
+          last_dunning_sent_at: nowIso,
+        })
+        .eq('id', invoiceRow.id)
+    }
+  }
 
   console.log(`⚠️  B2B invoice payment failed: ${invoice.id}`)
 }

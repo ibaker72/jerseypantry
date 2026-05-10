@@ -9,6 +9,18 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/process-b2b-orders",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/issue-b2b-invoices",
+      "schedule": "0 8 1 * *"
+    },
+    {
+      "path": "/api/cron/b2b-dunning",
+      "schedule": "0 13 * * *"
+    },
+    {
       "path": "/api/cron/openclaw-morning-report",
       "schedule": "0 12 * * 1-5"
     },
