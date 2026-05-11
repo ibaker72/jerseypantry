@@ -22,6 +22,7 @@ import {
   MessageSquarePlus,
   Factory,
   PackagePlus,
+  ScanLine,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -31,6 +32,7 @@ const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+  { href: '/admin/receiving', label: 'Receiving', icon: ScanLine },
   { href: '/admin/inventory', label: 'Low Stock', icon: TrendingDown },
   { href: '/admin/sku-velocity', label: 'SKU Velocity', icon: TrendingUp },
   { href: '/admin/inventory/lots', label: 'Inventory Lots', icon: PackagePlus },

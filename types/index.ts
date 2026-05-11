@@ -504,6 +504,7 @@ export interface InventoryLot {
   id: string
   product_id: string
   supplier_id: string | null
+  receiving_session_id: string | null
   quantity_received: number
   quantity_remaining: number
   unit_cost: number
@@ -517,6 +518,22 @@ export interface InventoryLot {
   updated_at: string
   // joined
   product?: Pick<Product, 'id' | 'name' | 'sku'> | null
+  supplier?: Pick<Supplier, 'id' | 'name'> | null
+}
+
+export type ReceivingSessionStatus = 'open' | 'finalized' | 'canceled'
+
+export interface ReceivingSession {
+  id: string
+  supplier_id: string | null
+  status: ReceivingSessionStatus
+  notes: string | null
+  started_at: string
+  finalized_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  // joined
   supplier?: Pick<Supplier, 'id' | 'name'> | null
 }
 
