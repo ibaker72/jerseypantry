@@ -233,7 +233,7 @@ export default function WholesalePage() {
                   className="border-white/30 text-white hover:bg-white/10"
                   asChild
                 >
-                  <Link href="/b2b/catalog">View Live Catalog</Link>
+                  <Link href="/wholesale/catalog">View Live Catalog</Link>
                 </Button>
               </div>
             </div>
@@ -601,7 +601,7 @@ export default function WholesalePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button size="xl" variant="orange" asChild>
-              <Link href="/b2b/catalog">
+              <Link href="/wholesale/catalog">
                 Open Wholesale Catalog <ArrowRight className="h-5 w-5" />
               </Link>
             </Button>

@@ -199,7 +199,7 @@ export function Header({ wholesaleMode = false, wholesaleApproved = false }: Hea
             Office Refill
           </Link>
           <Link
-            href="/wholesale"
+            href="/wholesale/catalog"
             className="shrink-0 text-xs font-medium text-gray-300 hover:text-white px-2.5 py-1 whitespace-nowrap"
           >
             Wholesale
