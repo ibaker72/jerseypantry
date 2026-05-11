@@ -192,6 +192,12 @@ export function Header() {
           >
             Office Refill
           </Link>
+          <Link
+            href="/wholesale"
+            className="shrink-0 text-xs font-medium text-gray-300 hover:text-white px-2.5 py-1 whitespace-nowrap"
+          >
+            Wholesale
+          </Link>
         </div>
       </header>
       <CartDrawer />

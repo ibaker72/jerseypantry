@@ -77,6 +77,7 @@ export function Footer() {
               {[
                 { href: '/local-delivery', label: 'Local Delivery' },
                 { href: '/office-refill', label: 'Office Refill Program' },
+                { href: '/wholesale', label: 'Wholesale Program' },
                 { href: '/bundles/build', label: 'Bundle Builder' },
                 { href: '/about', label: 'About Us' },
                 { href: '/contact', label: 'Contact' },
