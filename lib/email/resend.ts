@@ -741,6 +741,99 @@ export async function sendB2BSuspensionEmail(params: {
   }
 }
 
+// ============================================================
+// Stock Requests — weekly digest to admin
+// ============================================================
+
+interface StockRequestDigestItem {
+  product_name: string
+  brand: string | null
+  size: string | null
+  request_count: number
+  email: string | null
+  notes: string | null
+  created_at: string
+  status: string
+}
+
+export async function sendStockRequestDigestEmail(params: {
+  items: StockRequestDigestItem[]
+  total_open: number
+}): Promise<{ sent: boolean }> {
+  const apiKey = process.env.RESEND_API_KEY
+  const notifyTo = process.env.ORDER_NOTIFICATION_EMAIL
+  if (!apiKey || !notifyTo) return { sent: false }
+  if (params.items.length === 0) return { sent: false }
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'orders@mycornerstore.com'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const storeName = process.env.NEXT_PUBLIC_STORE_NAME ?? 'My Corner Store'
+
+  const rows = params.items
+    .map(
+      (item, idx) => `
+      <tr>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;color:#6b7280;width:28px;">${idx + 1}.</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;">
+          <div style="font-weight:bold;color:#111827;">${item.product_name}</div>
+          <div style="color:#6b7280;font-size:13px;">${[item.brand, item.size].filter(Boolean).join(' · ') || '—'}</div>
+          ${item.notes ? `<div style="color:#9ca3af;font-size:12px;font-style:italic;margin-top:2px;">"${item.notes}"</div>` : ''}
+        </td>
+        <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;">
+          <span style="display:inline-block;background:#FFE8D6;color:#E85D04;padding:3px 10px;border-radius:999px;font-weight:bold;font-size:13px;">
+            ${item.request_count}×
+          </span>
+        </td>
+      </tr>`
+    )
+    .join('')
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#FAF8F3;margin:0;padding:20px;">
+  <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#1B4332;padding:28px 40px;">
+      <h1 style="color:#fff;margin:0;font-size:22px;">${storeName}</h1>
+      <p style="color:#a7f3d0;margin:6px 0 0;font-size:13px;">Weekly stock-request digest</p>
+    </div>
+    <div style="padding:28px 40px;">
+      <p style="font-size:15px;color:#374151;margin-top:0;">
+        Customers asked for <strong>${params.total_open}</strong> open items this week. Top requests by demand:
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin:28px 0 0;text-align:center;">
+        <a href="${siteUrl}/admin/stock-requests" style="background:#1B4332;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px;">Review all requests →</a>
+      </div>
+      <p style="margin-top:20px;font-size:12px;color:#9ca3af;text-align:center;">
+        Tip: source the top 3, mark them as &ldquo;Sourced&rdquo;, and the customers who left an email will get notified.
+      </p>
+    </div>
+  </div>
+</body></html>`
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `${storeName} <${fromEmail}>`,
+      to: notifyTo,
+      subject: `Weekly stock requests — ${params.items.length} hot items`,
+      html,
+      text: `Top stock requests:\n${params.items
+        .map(
+          (i, n) => `${n + 1}. ${i.product_name} (${i.request_count}×)`
+        )
+        .join('\n')}\n\nReview: ${siteUrl}/admin/stock-requests`,
+    })
+    return { sent: true }
+  } catch (err) {
+    console.error('Failed to send stock-request digest:', err)
+    return { sent: false }
+  }
+}
+
 export async function sendOrderStatusUpdateEmail(params: {
   order_id: string
   order_number: string
