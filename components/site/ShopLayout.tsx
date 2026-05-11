@@ -4,11 +4,12 @@ import { useState, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { InventoryGrid } from '@/components/shop/InventoryGrid'
-import type { Product, Category } from '@/types'
+import type { Product, Category, WholesaleDisplay } from '@/types'
 
 interface ShopLayoutProps {
   products: Product[]
   categories: Category[]
+  wholesaleMap?: Record<string, WholesaleDisplay | null>
 }
 
 const PRICE_RANGES = [
@@ -25,7 +26,7 @@ const SORT_OPTIONS = [
   { label: 'Newest', value: 'newest' },
 ]
 
-export function ShopLayout({ products, categories }: ShopLayoutProps) {
+export function ShopLayout({ products, categories, wholesaleMap }: ShopLayoutProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
@@ -343,7 +344,7 @@ export function ShopLayout({ products, categories }: ShopLayoutProps) {
             </select>
           </div>
 
-          <InventoryGrid products={products} />
+          <InventoryGrid products={products} wholesaleMap={wholesaleMap} />
         </main>
       </div>
     </div>

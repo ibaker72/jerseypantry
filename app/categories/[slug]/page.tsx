@@ -5,6 +5,8 @@ import { ProductCard } from '@/components/shop/ProductCard'
 import { EmptyState } from '@/components/shop/EmptyState'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { buildMetadata, breadcrumbSchema, SITE_URL } from '@/lib/seo/metadata'
+import { getWholesaleMode } from '@/lib/wholesale/mode'
+import { buildWholesaleMap } from '@/lib/wholesale/enrich'
 import type { Product, Category } from '@/types'
 
 interface CategoryPageProps {
@@ -36,8 +38,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   if (!category) notFound()
 
+  const wholesaleMode = await getWholesaleMode()
+  const productsTable = wholesaleMode ? 'products_with_wholesale' : 'products'
+
   const { data: products } = await supabase
-    .from('products')
+    .from(productsTable)
     .select('*, category:categories(*)')
     .eq('is_active', true)
     .eq('category_id', (category as Category).id)
@@ -46,6 +51,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   const cat = category as Category
   const prods = (products ?? []) as Product[]
+  const wholesaleMap = wholesaleMode ? await buildWholesaleMap(prods) : {}
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -82,7 +88,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
           {prods.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              wholesale={wholesaleMode ? wholesaleMap[product.id] : null}
+            />
           ))}
         </div>
       )}

@@ -3,6 +3,7 @@ import { z } from 'zod'
 export const checkoutItemSchema = z.object({
   product_id: z.string().uuid(),
   quantity: z.number().int().min(1).max(99),
+  is_wholesale: z.boolean().optional(),
 })
 
 export const checkoutSchema = z.object({

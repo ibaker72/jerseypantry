@@ -55,6 +55,20 @@ export interface Product {
   updated_at: string
   // joined
   category?: Category | null
+  // wholesale (only populated when fetched via products_with_wholesale view
+  // for an approved business user — null otherwise)
+  wholesale_price?: number | null
+  case_size?: number | null
+  wholesale_unit?: string | null
+}
+
+export type VelocityVerdict = 'stock_now' | 'watch' | 'virtual'
+
+export interface WholesaleDisplay {
+  wholesale_price: number
+  case_size: number
+  wholesale_unit: string | null
+  verdict: VelocityVerdict | null
 }
 
 export interface Customer {
@@ -232,6 +246,10 @@ export interface CartItem {
   shipping_eligible: boolean
   delivery_eligible: boolean
   sku: string | null
+  // wholesale mode: when true, retail_price holds the wholesale unit price
+  // and quantity is number of CASES (each case has case_size units).
+  is_wholesale?: boolean
+  case_size?: number
 }
 
 export interface Cart {
@@ -297,6 +315,7 @@ export interface BusinessAccount {
   current_period_end: string | null
   delivery_notes: string | null
   status: 'active' | 'suspended' | 'canceled'
+  is_wholesale_approved: boolean
   dunning_stage: number
   suspended_at: string | null
   last_failure_at: string | null

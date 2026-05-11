@@ -4,6 +4,8 @@ import { ProductCard } from '@/components/shop/ProductCard'
 import { EmptyState } from '@/components/shop/EmptyState'
 import { ShopFilters } from './ShopFilters'
 import { buildMetadata } from '@/lib/seo/metadata'
+import { getWholesaleMode } from '@/lib/wholesale/mode'
+import { buildWholesaleMap } from '@/lib/wholesale/enrich'
 import type { Product, Category, FlashSale } from '@/types'
 
 interface ShopPageProps {
@@ -26,12 +28,14 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const { q, category: categorySlug, sort } = params
 
   const supabase = await createClient()
+  const wholesaleMode = await getWholesaleMode()
+  const productsTable = wholesaleMode ? 'products_with_wholesale' : 'products'
 
   const [{ data: categories }, productsResult, { data: flashSalesRaw }] = await Promise.all([
     supabase.from('categories').select('*').eq('is_active', true).order('sort_order'),
     (async () => {
       let query = supabase
-        .from('products')
+        .from(productsTable)
         .select('*, category:categories(*)')
         .eq('is_active', true)
 
@@ -82,6 +86,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const products = (productsResult.data ?? []) as Product[]
   const cats = (categories ?? []) as Category[]
   const flashSales = (flashSalesRaw ?? []) as FlashSale[]
+  const wholesaleMap = wholesaleMode ? await buildWholesaleMap(products) : {}
 
   // Build lookup: product_id -> best flash sale
   function getFlashSale(product: Product): FlashSale | null {
@@ -113,7 +118,12 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 mt-6">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} flashSale={getFlashSale(product)} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              flashSale={getFlashSale(product)}
+              wholesale={wholesaleMode ? wholesaleMap[product.id] : null}
+            />
           ))}
         </div>
       )}

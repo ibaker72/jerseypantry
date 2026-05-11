@@ -4,17 +4,20 @@ import { useState } from 'react'
 import { ShoppingCart, Minus, Plus, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCart } from '@/components/cart/CartContext'
-import type { Product } from '@/types'
+import type { Product, WholesaleDisplay } from '@/types'
 
 interface AddToCartButtonProps {
   product: Product
+  wholesale?: WholesaleDisplay | null
 }
 
-export function AddToCartButton({ product }: AddToCartButtonProps) {
+export function AddToCartButton({ product, wholesale }: AddToCartButtonProps) {
   const { cart, addToCart, updateItemQuantity } = useCart()
   const [added, setAdded] = useState(false)
   const cartItem = cart.items.find((i) => i.product_id === product.id)
   const isOutOfStock = product.inventory_quantity === 0
+  const isWholesale = Boolean(wholesale)
+  const unitPrice = isWholesale ? wholesale!.wholesale_price : product.retail_price
 
   const handleAdd = () => {
     addToCart({
@@ -23,12 +26,14 @@ export function AddToCartButton({ product }: AddToCartButtonProps) {
       name: product.name,
       slug: product.slug,
       image_url: product.image_url,
-      retail_price: product.retail_price,
+      retail_price: unitPrice,
       quantity: 1,
       inventory_quantity: product.inventory_quantity,
       shipping_eligible: product.shipping_eligible,
       delivery_eligible: product.delivery_eligible,
       sku: product.sku,
+      is_wholesale: isWholesale || undefined,
+      case_size: isWholesale ? wholesale!.case_size : undefined,
     })
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
@@ -78,7 +83,8 @@ export function AddToCartButton({ product }: AddToCartButtonProps) {
         </>
       ) : (
         <>
-          <ShoppingCart className="h-5 w-5" /> Add to Cart
+          <ShoppingCart className="h-5 w-5" />
+          {isWholesale ? `Add Case (×${wholesale!.case_size})` : 'Add to Cart'}
         </>
       )}
     </Button>

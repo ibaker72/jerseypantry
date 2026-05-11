@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, MapPin, ShoppingCart } from 'lucide-react'
 import { useCart, useCartUI } from '@/components/cart/CartContext'
 import { CartDrawer } from '@/components/cart/CartDrawer'
+import { WholesaleToggle } from '@/components/site/WholesaleToggle'
 
 const CATEGORY_OPTIONS = [
   'All Departments',
@@ -46,7 +47,12 @@ const SUB_NAV = [
   { label: 'Bundles', slug: 'bundles' },
 ]
 
-export function Header() {
+interface HeaderProps {
+  wholesaleMode?: boolean
+  wholesaleApproved?: boolean
+}
+
+export function Header({ wholesaleMode = false, wholesaleApproved = false }: HeaderProps = {}) {
   const { itemCount } = useCart()
   const { openCart } = useCartUI()
   const router = useRouter()
@@ -198,6 +204,9 @@ export function Header() {
           >
             Wholesale
           </Link>
+          {wholesaleApproved && (
+            <WholesaleToggle initialOn={wholesaleMode} />
+          )}
         </div>
       </header>
       <CartDrawer />

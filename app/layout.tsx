@@ -5,6 +5,7 @@ import './globals.css'
 import { CartProvider } from '@/components/cart/CartContext'
 import { Header } from '@/components/site/Header'
 import { Footer } from '@/components/site/Footer'
+import { getWholesaleMode, isCurrentUserWholesaleApproved } from '@/lib/wholesale/mode'
 import { MobileCartBar } from '@/components/site/MobileCartBar'
 import { ToastProvider } from '@/components/ui/toast'
 import { Toaster } from '@/components/ui/toaster'
@@ -44,7 +45,12 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const [wholesaleMode, wholesaleApproved] = await Promise.all([
+    getWholesaleMode(),
+    isCurrentUserWholesaleApproved(),
+  ])
+
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen flex flex-col bg-[#FAF8F3]" suppressHydrationWarning>
@@ -88,7 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </Script>
         <ToastProvider>
           <CartProvider>
-            <Header />
+            <Header wholesaleMode={wholesaleMode} wholesaleApproved={wholesaleApproved} />
             <main className="flex-1 pb-20 lg:pb-0">{children}</main>
             <Footer />
             <MobileCartBar />

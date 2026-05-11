@@ -22,6 +22,20 @@ export async function POST(req: NextRequest) {
     const serverClient = await createClient()
     const { data: { user } } = await serverClient.auth.getUser()
 
+    // Detect wholesale checkout. Cart is enforced homogeneous by the toggle
+    // modal, so any item with is_wholesale flips the whole order.
+    const isWholesaleCheckout = items.some((i) => i.is_wholesale === true)
+
+    if (isWholesaleCheckout) {
+      if (!user) {
+        return NextResponse.json({ error: 'Sign in to place a wholesale order' }, { status: 401 })
+      }
+      const { data: approved } = await supabase.rpc('is_wholesale_approved', { uid: user.id })
+      if (!approved) {
+        return NextResponse.json({ error: 'Your account is not approved for wholesale pricing' }, { status: 403 })
+      }
+    }
+
     // Validate products server-side — never trust client prices
     const productIds = items.map((i) => i.product_id)
     const { data: products, error: productsError } = await supabase
@@ -34,24 +48,55 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to validate products' }, { status: 500 })
     }
 
+    // For wholesale orders, fetch the gated price + case size for each item.
+    type WholesaleRow = { product_id: string; wholesale_price: number | null; unit_count: number | null }
+    let wholesaleByProductId: Record<string, WholesaleRow> = {}
+    if (isWholesaleCheckout) {
+      const { data: wholesaleRows, error: wholesaleError } = await supabase
+        .from('wholesale_inventory')
+        .select('product_id, wholesale_price, unit_count')
+        .in('product_id', productIds)
+
+      if (wholesaleError || !wholesaleRows) {
+        return NextResponse.json({ error: 'Failed to load wholesale pricing' }, { status: 500 })
+      }
+      wholesaleByProductId = Object.fromEntries(
+        (wholesaleRows as WholesaleRow[]).map((r) => [r.product_id, r])
+      )
+    }
+
     const cartItems: CartItem[] = []
     for (const orderItem of items) {
       const product = products.find((p) => p.id === orderItem.product_id) as Product | undefined
       if (!product) {
         return NextResponse.json({ error: `Product not found: ${orderItem.product_id}` }, { status: 400 })
       }
+
+      let unitPrice = product.retail_price
+      let caseSize: number | undefined
+      if (isWholesaleCheckout) {
+        const w = wholesaleByProductId[product.id]
+        if (!w || !w.wholesale_price || w.wholesale_price <= 0) {
+          return NextResponse.json({ error: `No wholesale price configured for ${product.name}` }, { status: 400 })
+        }
+        unitPrice = Number(w.wholesale_price)
+        caseSize = w.unit_count ?? 12
+      }
+
       cartItems.push({
         id: product.id,
         product_id: product.id,
         name: product.name,
         slug: product.slug,
         image_url: product.image_url ?? null,
-        retail_price: product.retail_price,
+        retail_price: unitPrice,
         quantity: orderItem.quantity,
         inventory_quantity: product.inventory_quantity,
         shipping_eligible: product.shipping_eligible,
         delivery_eligible: product.delivery_eligible,
         sku: product.sku ?? null,
+        is_wholesale: isWholesaleCheckout || undefined,
+        case_size: caseSize,
       })
     }
 
@@ -187,17 +232,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
     }
 
-    // Insert order items
+    // Insert order items. For wholesale orders, the order_items table records
+    // the per-CASE total (unit_price * case_size * quantity) and quantity is
+    // the number of cases, matching how Stripe will charge.
     await supabase.from('order_items').insert(
-      cartItems.map((item) => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        product_name: item.name,
-        sku: item.sku,
-        quantity: item.quantity,
-        unit_price: item.retail_price,
-        line_total: item.retail_price * item.quantity,
-      }))
+      cartItems.map((item) => {
+        const unitsPerLine = item.is_wholesale ? (item.case_size ?? 1) : 1
+        const linePrice = item.retail_price * unitsPerLine
+        return {
+          order_id: order.id,
+          product_id: item.product_id,
+          product_name: item.is_wholesale
+            ? `${item.name} — Case of ${item.case_size}`
+            : item.name,
+          sku: item.sku,
+          quantity: item.quantity,
+          unit_price: linePrice,
+          line_total: linePrice * item.quantity,
+        }
+      })
     )
 
     // Atomic inventory reservation
@@ -252,17 +305,25 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Build Stripe Checkout session
+    // Build Stripe Checkout session. For wholesale: unit_amount is the
+    // per-case price (unit_price × case_size); Stripe quantity is the number
+    // of cases.
     const stripe = getStripe()
-    const lineItems = cartItems.map((item) => ({
-      price_data: {
-        currency: 'usd',
-        product_data: { name: item.name, ...(item.image_url ? { images: [item.image_url] } : {}) },
-        unit_amount: Math.round(item.retail_price * 100),
-        tax_behavior: 'exclusive' as const,
-      },
-      quantity: item.quantity,
-    }))
+    const lineItems = cartItems.map((item) => {
+      const unitsPerLine = item.is_wholesale ? (item.case_size ?? 1) : 1
+      return {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: item.is_wholesale ? `${item.name} — Case of ${item.case_size}` : item.name,
+            ...(item.image_url ? { images: [item.image_url] } : {}),
+          },
+          unit_amount: Math.round(item.retail_price * unitsPerLine * 100),
+          tax_behavior: 'exclusive' as const,
+        },
+        quantity: item.quantity,
+      }
+    })
 
     if (pricing.delivery_fee > 0) {
       lineItems.push({ price_data: { currency: 'usd', product_data: { name: 'Local Delivery Fee' }, unit_amount: Math.round(pricing.delivery_fee * 100), tax_behavior: 'exclusive' as const }, quantity: 1 })
@@ -278,6 +339,17 @@ export async function POST(req: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
     const taxEnabled = process.env.STRIPE_TAX_ENABLED === 'true'
 
+    let wholesaleBusinessId: string | null = null
+    if (isWholesaleCheckout && user) {
+      const { data: member } = await supabase
+        .from('business_members')
+        .select('business_id')
+        .eq('user_id', user.id)
+        .not('accepted_at', 'is', null)
+        .single()
+      wholesaleBusinessId = member?.business_id ?? null
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
@@ -289,6 +361,8 @@ export async function POST(req: NextRequest) {
         inventory_reserved: 'true',
         user_id: user?.id ?? '',
         loyalty_points_redeemed: String(validatedLoyaltyPoints),
+        order_type: isWholesaleCheckout ? 'wholesale_b2b' : 'retail',
+        ...(wholesaleBusinessId ? { business_id: wholesaleBusinessId } : {}),
       },
       success_url: `${siteUrl}/order/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/cart?canceled=true`,

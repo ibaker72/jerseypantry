@@ -93,9 +93,21 @@ export function CartDrawer() {
                     <p className="text-sm font-medium text-brand-charcoal line-clamp-2 leading-tight">
                       {item.name}
                     </p>
+                    {item.is_wholesale && (
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 mt-0.5">
+                        Wholesale · Case of {item.case_size ?? '?'}
+                      </span>
+                    )}
                     <p className="text-sm font-bold text-brand-charcoal mt-0.5">
-                      {formatPrice(item.retail_price)}
+                      {item.is_wholesale
+                        ? `${formatPrice(item.retail_price * (item.case_size ?? 1))} / case`
+                        : formatPrice(item.retail_price)}
                     </p>
+                    {item.is_wholesale && (
+                      <p className="text-[11px] text-gray-500">
+                        {formatPrice(item.retail_price)} / unit
+                      </p>
+                    )}
                     {/* Qty controls */}
                     <div className="flex items-center gap-2 mt-2">
                       <button
@@ -125,7 +137,11 @@ export function CartDrawer() {
                       <X className="h-4 w-4" />
                     </button>
                     <p className="text-sm font-semibold text-brand-charcoal">
-                      {formatPrice(item.retail_price * item.quantity)}
+                      {formatPrice(
+                        item.retail_price *
+                          (item.is_wholesale ? (item.case_size ?? 1) : 1) *
+                          item.quantity
+                      )}
                     </p>
                   </div>
                 </li>

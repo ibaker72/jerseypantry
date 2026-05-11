@@ -1,12 +1,13 @@
 import { ProductCell } from './ProductCell'
-import type { Product } from '@/types'
+import type { Product, WholesaleDisplay } from '@/types'
 
 interface InventoryGridProps {
   products: Product[]
   title?: string
+  wholesaleMap?: Record<string, WholesaleDisplay | null>
 }
 
-export function InventoryGrid({ products, title }: InventoryGridProps) {
+export function InventoryGrid({ products, title, wholesaleMap }: InventoryGridProps) {
   if (products.length === 0) {
     return (
       <div className="border-2 border-dashed border-gray-200 bg-white py-20 text-center">
@@ -32,7 +33,11 @@ export function InventoryGrid({ products, title }: InventoryGridProps) {
       {/* 2 cols mobile → 4 cols tablet → 6 cols desktop */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
         {products.map((product) => (
-          <ProductCell key={product.id} product={product} />
+          <ProductCell
+            key={product.id}
+            product={product}
+            wholesale={wholesaleMap?.[product.id] ?? null}
+          />
         ))}
       </div>
     </section>

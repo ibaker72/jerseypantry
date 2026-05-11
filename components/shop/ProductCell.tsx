@@ -3,11 +3,11 @@
 import { memo, useCallback, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Plus, Minus } from 'lucide-react'
+import { Plus, Minus, Zap, CalendarClock } from 'lucide-react'
 import { useCart } from '@/components/cart/CartContext'
 import { formatPrice } from '@/lib/utils/format'
 import { getCategoryFallback } from '@/lib/utils/imageFallback'
-import type { Product } from '@/types'
+import type { Product, WholesaleDisplay } from '@/types'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   'drinks': '🥤',
@@ -26,16 +26,21 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 interface ProductCellProps {
   product: Product
+  wholesale?: WholesaleDisplay | null
 }
 
-export const ProductCell = memo(function ProductCell({ product }: ProductCellProps) {
+export const ProductCell = memo(function ProductCell({ product, wholesale }: ProductCellProps) {
   const { cart, addToCart, updateItemQuantity } = useCart()
   const cartItem = cart.items.find((i) => i.product_id === product.id)
   const isOutOfStock = product.inventory_quantity === 0
   const [imgSrc, setImgSrc] = useState(product.image_url)
+  const isWholesale = Boolean(wholesale)
   const onSale =
+    !isWholesale &&
     product.compare_at_price != null &&
     product.compare_at_price > product.retail_price
+  const unitPrice = isWholesale ? wholesale!.wholesale_price : product.retail_price
+  const casePrice = isWholesale ? wholesale!.wholesale_price * wholesale!.case_size : null
 
   const handleAdd = useCallback(() => {
     addToCart({
@@ -44,14 +49,16 @@ export const ProductCell = memo(function ProductCell({ product }: ProductCellPro
       name: product.name,
       slug: product.slug,
       image_url: product.image_url,
-      retail_price: product.retail_price,
+      retail_price: unitPrice,
       quantity: 1,
       inventory_quantity: product.inventory_quantity,
       shipping_eligible: product.shipping_eligible,
       delivery_eligible: product.delivery_eligible,
       sku: product.sku,
+      is_wholesale: isWholesale || undefined,
+      case_size: isWholesale ? wholesale!.case_size : undefined,
     })
-  }, [addToCart, product])
+  }, [addToCart, product, unitPrice, isWholesale, wholesale])
 
   return (
     <div className="group border border-gray-200 hover:border-orange-400 bg-white flex flex-col transition-colors">
@@ -86,10 +93,16 @@ export const ProductCell = memo(function ProductCell({ product }: ProductCellPro
           </div>
         )}
 
-        {onSale && !isOutOfStock && (
-          <div className="absolute top-1.5 left-1.5 bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wide">
-            Sale
+        {isWholesale && !isOutOfStock ? (
+          <div className="absolute top-1.5 left-1.5 bg-amber-400 text-slate-900 text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wide">
+            Wholesale
           </div>
+        ) : (
+          onSale && !isOutOfStock && (
+            <div className="absolute top-1.5 left-1.5 bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wide">
+              Sale
+            </div>
+          )
         )}
       </Link>
 
@@ -115,16 +128,40 @@ export const ProductCell = memo(function ProductCell({ product }: ProductCellPro
         )}
 
         {/* Price row */}
-        <div className="flex items-baseline gap-1.5 mt-auto pt-1">
-          <span className="text-sm font-bold text-gray-900">
-            {formatPrice(product.retail_price)}
-          </span>
-          {onSale && (
-            <span className="text-[10px] text-gray-400 line-through">
-              {formatPrice(product.compare_at_price!)}
+        {isWholesale ? (
+          <div className="mt-auto pt-1">
+            <div className="flex items-baseline gap-1">
+              <span className="text-sm font-bold text-gray-900">
+                {formatPrice(casePrice!)}
+              </span>
+              <span className="text-[9px] text-gray-500">/case</span>
+            </div>
+            <p className="text-[10px] text-gray-500">
+              {formatPrice(unitPrice)}/unit · {wholesale!.case_size}/case
+            </p>
+            {wholesale!.verdict === 'stock_now' && (
+              <span className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700">
+                <Zap className="h-2.5 w-2.5" /> Instant Delivery
+              </span>
+            )}
+            {wholesale!.verdict === 'virtual' && (
+              <span className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-700">
+                <CalendarClock className="h-2.5 w-2.5" /> 24hr Pre-order
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-baseline gap-1.5 mt-auto pt-1">
+            <span className="text-sm font-bold text-gray-900">
+              {formatPrice(product.retail_price)}
             </span>
-          )}
-        </div>
+            {onSale && (
+              <span className="text-[10px] text-gray-400 line-through">
+                {formatPrice(product.compare_at_price!)}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Cart controls */}
         {isOutOfStock ? (
@@ -162,9 +199,13 @@ export const ProductCell = memo(function ProductCell({ product }: ProductCellPro
         ) : (
           <button
             onClick={handleAdd}
-            className="mt-1.5 w-full bg-orange-400 hover:bg-orange-500 text-slate-900 text-[11px] font-bold py-1.5 transition-colors"
+            className={`mt-1.5 w-full text-[11px] font-bold py-1.5 transition-colors ${
+              isWholesale
+                ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                : 'bg-orange-400 hover:bg-orange-500 text-slate-900'
+            }`}
           >
-            Add to Cart
+            {isWholesale ? `Add Case (×${wholesale!.case_size})` : 'Add to Cart'}
           </button>
         )}
       </div>

@@ -3,14 +3,14 @@
 import { memo, useCallback, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ShoppingCart, Plus, Minus } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Zap, CalendarClock, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ProductBadgeList } from './ProductBadge'
 import { FlashSaleCountdown } from './FlashSaleCountdown'
 import { useCart } from '@/components/cart/CartContext'
 import { formatPrice } from '@/lib/utils/format'
 import { getCategoryFallback } from '@/lib/utils/imageFallback'
-import type { Product, FlashSale } from '@/types'
+import type { Product, FlashSale, WholesaleDisplay } from '@/types'
 import { cn } from '@/lib/utils/cn'
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -31,27 +31,35 @@ const CATEGORY_EMOJI: Record<string, string> = {
 interface ProductCardProps {
   product: Product
   flashSale?: FlashSale | null
+  wholesale?: WholesaleDisplay | null
   className?: string
 }
 
-export const ProductCard = memo(function ProductCard({ product, flashSale, className }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, flashSale, wholesale, className }: ProductCardProps) {
   const { cart, addToCart, updateItemQuantity } = useCart()
   const cartItem = cart.items.find((i) => i.product_id === product.id)
   const isOutOfStock = product.inventory_quantity === 0
   const [imgSrc, setImgSrc] = useState(product.image_url)
 
-  const salePrice = flashSale
-    ? flashSale.discount_type === 'percent'
+  // Wholesale mode short-circuits flash sales and compare-at pricing.
+  const isWholesale = Boolean(wholesale)
+  const effectiveFlashSale = isWholesale ? null : flashSale
+  const showCompareAt = !isWholesale && product.compare_at_price && product.compare_at_price > product.retail_price
+
+  const salePrice = effectiveFlashSale
+    ? effectiveFlashSale.discount_type === 'percent'
       ? Math.max(
           0,
           product.retail_price - Math.min(
-            (product.retail_price * flashSale.discount_value) / 100,
-            flashSale.max_discount ?? Infinity
+            (product.retail_price * effectiveFlashSale.discount_value) / 100,
+            effectiveFlashSale.max_discount ?? Infinity
           )
         )
-      : Math.max(0, product.retail_price - flashSale.discount_value)
+      : Math.max(0, product.retail_price - effectiveFlashSale.discount_value)
     : null
-  const displayPrice = salePrice ?? product.retail_price
+  const retailDisplayPrice = salePrice ?? product.retail_price
+  const unitPrice = isWholesale ? wholesale!.wholesale_price : retailDisplayPrice
+  const casePrice = isWholesale ? wholesale!.wholesale_price * wholesale!.case_size : null
 
   const handleAddToCart = useCallback(() => {
     addToCart({
@@ -60,14 +68,16 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
       name: product.name,
       slug: product.slug,
       image_url: product.image_url,
-      retail_price: displayPrice,
+      retail_price: unitPrice,
       quantity: 1,
       inventory_quantity: product.inventory_quantity,
       shipping_eligible: product.shipping_eligible,
       delivery_eligible: product.delivery_eligible,
       sku: product.sku,
+      is_wholesale: isWholesale || undefined,
+      case_size: isWholesale ? wholesale!.case_size : undefined,
     })
-  }, [addToCart, product, displayPrice])
+  }, [addToCart, product, unitPrice, isWholesale, wholesale])
 
   return (
     <div className={cn('group relative flex flex-col rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden min-h-[340px]', className)}>
@@ -97,10 +107,16 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
             </span>
           </div>
         )}
-        {(flashSale || (product.compare_at_price && product.compare_at_price > product.retail_price)) && (
-          <div className="absolute top-2 left-2 bg-brand-orange text-white text-xs font-bold px-2 py-1 rounded-full">
-            {flashSale ? flashSale.badge_label : 'SALE'}
+        {isWholesale ? (
+          <div className="absolute top-2 left-2 bg-amber-400 text-slate-900 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full">
+            Wholesale
           </div>
+        ) : (
+          (effectiveFlashSale || showCompareAt) && (
+            <div className="absolute top-2 left-2 bg-brand-orange text-white text-xs font-bold px-2 py-1 rounded-full">
+              {effectiveFlashSale ? effectiveFlashSale.badge_label : 'SALE'}
+            </div>
+          )
         )}
       </Link>
 
@@ -118,20 +134,35 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
           <p className="text-[11px] text-gray-400 tracking-wide truncate">{product.brand}{product.size ? ` · ${product.size}` : ''}</p>
         )}
 
-        {flashSale && (
-          <FlashSaleCountdown endsAt={flashSale.ends_at} badgeLabel="" className="text-xs py-1 px-2" />
+        {effectiveFlashSale && (
+          <FlashSaleCountdown endsAt={effectiveFlashSale.ends_at} badgeLabel="" className="text-xs py-1 px-2" />
         )}
 
-        <div className="flex items-baseline gap-2 mt-auto">
-          <span className={`text-lg font-extrabold ${flashSale ? 'text-brand-orange' : 'text-brand-navy'}`}>
-            {formatPrice(displayPrice)}
-          </span>
-          {(flashSale || (product.compare_at_price && product.compare_at_price > product.retail_price)) && (
-            <span className="text-xs text-gray-400 line-through font-medium">
-              {formatPrice(flashSale ? product.retail_price : product.compare_at_price!)}
+        {isWholesale ? (
+          <div className="mt-auto">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-extrabold text-brand-navy">
+                {formatPrice(casePrice!)}
+              </span>
+              <span className="text-[11px] text-gray-500">/ case</span>
+            </div>
+            <p className="text-[11px] text-gray-500">
+              {formatPrice(unitPrice)} / unit · {wholesale!.case_size}/case
+            </p>
+            <VerdictBadge verdict={wholesale!.verdict} />
+          </div>
+        ) : (
+          <div className="flex items-baseline gap-2 mt-auto">
+            <span className={`text-lg font-extrabold ${effectiveFlashSale ? 'text-brand-orange' : 'text-brand-navy'}`}>
+              {formatPrice(retailDisplayPrice)}
             </span>
-          )}
-        </div>
+            {(effectiveFlashSale || showCompareAt) && (
+              <span className="text-xs text-gray-400 line-through font-medium">
+                {formatPrice(effectiveFlashSale ? product.retail_price : product.compare_at_price!)}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Cart controls */}
         {!isOutOfStock && (
@@ -161,10 +192,14 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
               <Button
                 onClick={handleAddToCart}
                 size="sm"
-                className="w-full gap-1.5 bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold"
+                className={`w-full gap-1.5 font-semibold text-white ${
+                  isWholesale
+                    ? 'bg-amber-500 hover:bg-amber-600'
+                    : 'bg-brand-orange hover:bg-brand-orange/90'
+                }`}
               >
                 <ShoppingCart className="h-4 w-4" />
-                Add to Cart
+                {isWholesale ? `Add Case (×${wholesale!.case_size})` : 'Add to Cart'}
               </Button>
             )}
           </>
@@ -178,3 +213,26 @@ export const ProductCard = memo(function ProductCard({ product, flashSale, class
     </div>
   )
 })
+
+function VerdictBadge({ verdict }: { verdict: WholesaleDisplay['verdict'] }) {
+  if (!verdict) return null
+  if (verdict === 'stock_now') {
+    return (
+      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5 bg-emerald-100 text-emerald-700">
+        <Zap className="h-3 w-3" /> Instant Delivery
+      </span>
+    )
+  }
+  if (verdict === 'virtual') {
+    return (
+      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">
+        <CalendarClock className="h-3 w-3" /> 24hr Pre-order
+      </span>
+    )
+  }
+  return (
+    <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5 bg-gray-100 text-gray-600">
+      <CheckCircle className="h-3 w-3" /> Available
+    </span>
+  )
+}

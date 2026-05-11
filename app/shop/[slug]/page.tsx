@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ProductBadgeList } from '@/components/shop/ProductBadge'
 import { ProductCard } from '@/components/shop/ProductCard'
+import { getWholesaleMode } from '@/lib/wholesale/mode'
+import { buildWholesaleMap } from '@/lib/wholesale/enrich'
 import { AddToCartButton } from './AddToCartButton'
 import { SubscribeButton } from './SubscribeButton'
 import { formatPrice } from '@/lib/utils/format'
@@ -36,9 +38,11 @@ export async function generateMetadata({ params }: ProductPageProps) {
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params
   const supabase = await createClient()
+  const wholesaleMode = await getWholesaleMode()
+  const productsTable = wholesaleMode ? 'products_with_wholesale' : 'products'
 
   const { data: product } = await supabase
-    .from('products')
+    .from(productsTable)
     .select('*, category:categories(*)')
     .eq('slug', slug)
     .eq('is_active', true)
@@ -49,12 +53,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const p = product as Product & { category: Category | null }
 
   const { data: related } = await supabase
-    .from('products')
+    .from(productsTable)
     .select('*, category:categories(*)')
     .eq('is_active', true)
     .eq('category_id', p.category_id ?? '')
     .neq('id', p.id)
     .limit(4)
+
+  const relatedProducts = (related ?? []) as Product[]
+  const wholesaleMap = wholesaleMode
+    ? await buildWholesaleMap([p, ...relatedProducts])
+    : {}
+  const pWholesale = wholesaleMode ? wholesaleMap[p.id] : null
 
   const breadcrumbs = [
     { name: 'Home', url: SITE_URL },
@@ -111,12 +121,36 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-3xl font-bold text-brand-charcoal">{formatPrice(p.retail_price)}</span>
-            {p.compare_at_price && p.compare_at_price > p.retail_price && (
-              <span className="text-lg text-gray-400 line-through">{formatPrice(p.compare_at_price)}</span>
-            )}
-          </div>
+          {pWholesale ? (
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold text-brand-charcoal">
+                  {formatPrice(pWholesale.wholesale_price * pWholesale.case_size)}
+                </span>
+                <span className="text-sm text-gray-500">/ case</span>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                {formatPrice(pWholesale.wholesale_price)} per unit · Case of {pWholesale.case_size}
+              </p>
+              {pWholesale.verdict === 'stock_now' && (
+                <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 bg-emerald-100 text-emerald-700">
+                  ⚡ Instant Delivery
+                </span>
+              )}
+              {pWholesale.verdict === 'virtual' && (
+                <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 bg-amber-100 text-amber-700">
+                  📅 24hr Pre-order
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-3xl font-bold text-brand-charcoal">{formatPrice(p.retail_price)}</span>
+              {p.compare_at_price && p.compare_at_price > p.retail_price && (
+                <span className="text-lg text-gray-400 line-through">{formatPrice(p.compare_at_price)}</span>
+              )}
+            </div>
+          )}
 
           {p.description && (
             <p className="text-gray-600 leading-relaxed">{p.description}</p>
@@ -155,7 +189,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
           </div>
 
-          <AddToCartButton product={p as Product} />
+          <AddToCartButton product={p as Product} wholesale={pWholesale ?? null} />
 
           {/* Subscribe & Save — only for delivery/shipping eligible products */}
           {p.inventory_quantity > 0 && (p.delivery_eligible || p.shipping_eligible) && (
@@ -165,12 +199,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
       </div>
 
       {/* Related */}
-      {(related ?? []).length > 0 && (
+      {relatedProducts.length > 0 && (
         <div className="mt-16">
           <h2 className="text-xl font-bold text-brand-charcoal mb-6">You might also like</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {(related as Product[]).map((rp) => (
-              <ProductCard key={rp.id} product={rp} />
+            {relatedProducts.map((rp) => (
+              <ProductCard
+                key={rp.id}
+                product={rp}
+                wholesale={wholesaleMode ? wholesaleMap[rp.id] : null}
+              />
             ))}
           </div>
         </div>

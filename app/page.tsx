@@ -5,6 +5,8 @@ import { ProductCard } from '@/components/shop/ProductCard'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { createClient } from '@/lib/supabase/server'
 import { buildMetadata, localBusinessSchema } from '@/lib/seo/metadata'
+import { getWholesaleMode } from '@/lib/wholesale/mode'
+import { buildWholesaleMap } from '@/lib/wholesale/enrich'
 import type { Category, Product } from '@/types'
 
 export const metadata = buildMetadata({
@@ -42,6 +44,8 @@ export default async function HomePage({ searchParams }: PageProps) {
   const { q, category, inStock, price, brand, sort } = params
 
   const supabase = await createClient()
+  const wholesaleMode = await getWholesaleMode()
+  const productsTable = wholesaleMode ? 'products_with_wholesale' : 'products'
 
   // ── Categories ────────────────────────────────────────────────────────────
   const { data: categoriesData, error: categoriesError } = await supabase
@@ -83,7 +87,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   }
 
   let productQuery = supabase
-    .from('products')
+    .from(productsTable)
     .select('*, category:categories(*)')
     .eq('is_active', true)
 
@@ -143,6 +147,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     })
   }
   const products: Product[] = (productsData as Product[] | null) ?? []
+  const wholesaleMap = wholesaleMode ? await buildWholesaleMap(products) : {}
 
   const hasFilters = !!(q || category || inStock || price || brand)
   const featuredProducts = products.filter((p) => p.is_featured).slice(0, 8)
@@ -196,7 +201,11 @@ export default async function HomePage({ searchParams }: PageProps) {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
                 {featuredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    wholesale={wholesaleMode ? wholesaleMap[product.id] : null}
+                  />
                 ))}
               </div>
             </section>
@@ -249,7 +258,11 @@ export default async function HomePage({ searchParams }: PageProps) {
       )}
 
       {/* ── Full Shop Grid ────────────────────────────────────────────────────── */}
-      <ShopLayout products={products} categories={categories} />
+      <ShopLayout
+        products={products}
+        categories={categories}
+        wholesaleMap={wholesaleMode ? wholesaleMap : undefined}
+      />
     </>
   )
 }

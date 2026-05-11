@@ -123,7 +123,11 @@ export function CartPageContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: cart.items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
+          items: cart.items.map((i) => ({
+            product_id: i.product_id,
+            quantity: i.quantity,
+            ...(i.is_wholesale ? { is_wholesale: true } : {}),
+          })),
           fulfillment_method: cart.fulfillment_method,
           email,
           postal_code: cart.postal_code,

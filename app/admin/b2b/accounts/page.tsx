@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Building2, Plus, ExternalLink } from 'lucide-react'
+import { WholesaleApprovedToggle } from '@/components/admin/WholesaleApprovedToggle'
 import type { BusinessAccount, OfficeRefillLead } from '@/types'
 
 export const metadata = { title: 'B2B Accounts — Admin' }
@@ -125,6 +126,7 @@ export default async function B2BAccountsPage() {
                 <th className="text-left px-6 py-3">Plan</th>
                 <th className="text-left px-6 py-3">Billing</th>
                 <th className="text-left px-6 py-3">Status</th>
+                <th className="text-left px-6 py-3">Wholesale</th>
                 <th className="text-right px-6 py-3">Members</th>
                 <th className="text-left px-6 py-3">Renews</th>
                 <th className="px-6 py-3"></th>
@@ -147,6 +149,12 @@ export default async function B2BAccountsPage() {
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[ba.subscription_status] ?? 'bg-gray-100 text-gray-500'}`}>
                       {ba.subscription_status}
                     </span>
+                  </td>
+                  <td className="px-6 py-3">
+                    <WholesaleApprovedToggle
+                      businessId={ba.id}
+                      initial={Boolean(ba.is_wholesale_approved)}
+                    />
                   </td>
                   <td className="px-6 py-3 text-right text-gray-600">{ba.members?.length ?? 0}</td>
                   <td className="px-6 py-3 text-gray-400 text-xs">

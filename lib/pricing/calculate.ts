@@ -5,7 +5,10 @@ const DEFAULT_DELIVERY_FEE = 4.99
 const DEFAULT_FREE_DELIVERY_MINIMUM = 50.00
 
 export function calculateSubtotal(items: CartItem[]): number {
-  return items.reduce((sum, item) => sum + item.retail_price * item.quantity, 0)
+  return items.reduce((sum, item) => {
+    const unitsPerLine = item.is_wholesale ? (item.case_size ?? 1) : 1
+    return sum + item.retail_price * unitsPerLine * item.quantity
+  }, 0)
 }
 
 export function calculateDeliveryFee(
