@@ -464,6 +464,43 @@ export interface Referral {
   credited_at: string | null
 }
 
+export type PaymentTerms = 'prepaid' | 'cash' | 'net15' | 'net30' | 'net60' | 'other'
+
+export interface Supplier {
+  id: string
+  name: string
+  contact_name: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  website: string | null
+  payment_terms: PaymentTerms
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface InventoryLot {
+  id: string
+  product_id: string
+  supplier_id: string | null
+  quantity_received: number
+  quantity_remaining: number
+  unit_cost: number
+  total_cost: number
+  lot_number: string | null
+  expiration_date: string | null
+  received_at: string
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  // joined
+  product?: Pick<Product, 'id' | 'name' | 'sku'> | null
+  supplier?: Pick<Supplier, 'id' | 'name'> | null
+}
+
 export type StockRequestStatus = 'new' | 'reviewing' | 'sourced' | 'declined'
 export type StockRequestSource = 'storefront' | 'product_page' | 'search' | 'admin'
 

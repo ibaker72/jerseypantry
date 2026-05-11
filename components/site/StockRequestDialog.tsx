@@ -20,22 +20,28 @@ interface StockRequestDialogProps {
   trigger?: React.ReactNode
   productId?: string | null
   defaultProductName?: string
+  defaultBrand?: string
+  defaultSize?: string
   source?: StockRequestSource
+  mode?: 'request' | 'notify'
 }
 
 export function StockRequestDialog({
   trigger,
   productId = null,
   defaultProductName = '',
+  defaultBrand = '',
+  defaultSize = '',
   source = 'storefront',
+  mode = 'request',
 }: StockRequestDialogProps) {
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [productName, setProductName] = useState(defaultProductName)
-  const [brand, setBrand] = useState('')
-  const [size, setSize] = useState('')
+  const [brand, setBrand] = useState(defaultBrand)
+  const [size, setSize] = useState(defaultSize)
   const [notes, setNotes] = useState('')
   const [email, setEmail] = useState('')
 
@@ -105,10 +111,15 @@ export function StockRequestDialog({
         {done ? (
           <div className="text-center py-6">
             <CheckCircle2 className="h-12 w-12 text-brand-green mx-auto mb-3" />
-            <DialogTitle className="text-xl mb-1">Got it — thanks!</DialogTitle>
+            <DialogTitle className="text-xl mb-1">
+              {mode === 'notify' ? 'You’re on the list!' : 'Got it — thanks!'}
+            </DialogTitle>
             <DialogDescription>
-              We&apos;ll review requests weekly and stock the most-asked items.
-              {email ? ' We&apos;ll email you when it&apos;s in.' : ''}
+              {mode === 'notify'
+                ? email
+                  ? 'We’ll email you the moment it’s back in stock.'
+                  : 'Add your email next time and we’ll ping you when it’s back.'
+                : `We’ll review requests weekly and stock the most-asked items.${email ? ' We’ll email you when it’s in.' : ''}`}
             </DialogDescription>
             <Button className="mt-5" onClick={() => handleOpenChange(false)}>
               Close
@@ -117,10 +128,15 @@ export function StockRequestDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Request an item we don&apos;t carry</DialogTitle>
+              <DialogTitle>
+                {mode === 'notify'
+                  ? 'Notify me when it’s back'
+                  : 'Request an item we don’t carry'}
+              </DialogTitle>
               <DialogDescription>
-                Tell us what you wish we stocked. The more requests an item
-                gets, the more likely we are to add it.
+                {mode === 'notify'
+                  ? 'Drop your email and we’ll let you know the moment it’s restocked.'
+                  : 'Tell us what you wish we stocked. The more requests an item gets, the more likely we are to add it.'}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-3.5">

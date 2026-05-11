@@ -9,7 +9,8 @@ import { SubscribeButton } from './SubscribeButton'
 import { formatPrice } from '@/lib/utils/format'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { buildMetadata, productSchema, breadcrumbSchema, SITE_URL } from '@/lib/seo/metadata'
-import { Truck, Package, CheckCircle, XCircle } from 'lucide-react'
+import { Truck, Package, CheckCircle, XCircle, Bell } from 'lucide-react'
+import { StockRequestDialog } from '@/components/site/StockRequestDialog'
 import type { Product, Category } from '@/types'
 
 interface ProductPageProps {
@@ -155,7 +156,27 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
           </div>
 
-          <AddToCartButton product={p as Product} />
+          {p.inventory_quantity > 0 ? (
+            <AddToCartButton product={p as Product} />
+          ) : (
+            <StockRequestDialog
+              mode="notify"
+              productId={p.id}
+              defaultProductName={p.name}
+              defaultBrand={p.brand ?? ''}
+              defaultSize={p.size ?? ''}
+              source="product_page"
+              trigger={
+                <button
+                  type="button"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-orange text-white font-semibold h-12 px-6 hover:bg-brand-orange/90 transition-colors"
+                >
+                  <Bell className="h-4 w-4" />
+                  Notify me when back in stock
+                </button>
+              }
+            />
+          )}
 
           {/* Subscribe & Save — only for delivery/shipping eligible products */}
           {p.inventory_quantity > 0 && (p.delivery_eligible || p.shipping_eligible) && (
