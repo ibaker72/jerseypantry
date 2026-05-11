@@ -19,6 +19,7 @@ import {
   Truck,
   Calculator,
   Boxes,
+  MessageSquarePlus,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -29,7 +30,12 @@ const navItems = [
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/admin/inventory', label: 'Low Stock', icon: TrendingDown },
+<<<<<<< HEAD
   { href: '/admin/sku-velocity', label: 'SKU Velocity', icon: TrendingUp },
+  { href: '/admin/stock-requests', label: 'Stock Requests', icon: MessageSquarePlus },
+=======
+  { href: '/admin/stock-requests', label: 'Stock Requests', icon: MessageSquarePlus },
+>>>>>>> origin/claude/inventory-sourcing-recommendations-T8TAM
   { href: '/admin/flash-sales', label: 'Flash Sales', icon: Zap },
   { href: '/admin/promotions', label: 'Promotions', icon: Tag },
   { href: '/admin/subscriptions', label: 'Subscriptions', icon: RefreshCw },

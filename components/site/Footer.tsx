@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { MapPin, Mail, ArrowRight } from 'lucide-react'
+import { MapPin, Mail, ArrowRight, PackagePlus } from 'lucide-react'
+import { StockRequestDialog } from '@/components/site/StockRequestDialog'
 
 const NJ_CITIES = ['Passaic', 'Clifton', 'Paterson', 'Rutherford', 'Garfield', 'Wallington', 'Lodi', 'Saddle Brook']
 
@@ -107,6 +108,20 @@ export function Footer() {
             >
               B2B Refill Plans <ArrowRight className="h-4 w-4" />
             </Link>
+            <div className="mt-4 pt-4 border-t border-green-700/60">
+              <p className="text-xs text-green-300 mb-2">Don&apos;t see what you want?</p>
+              <StockRequestDialog
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-colors"
+                  >
+                    <PackagePlus className="h-4 w-4" />
+                    Request an item
+                  </button>
+                }
+              />
+            </div>
           </div>
         </div>
 

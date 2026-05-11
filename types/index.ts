@@ -483,6 +483,26 @@ export interface Referral {
   credited_at: string | null
 }
 
+export type StockRequestStatus = 'new' | 'reviewing' | 'sourced' | 'declined'
+export type StockRequestSource = 'storefront' | 'product_page' | 'search' | 'admin'
+
+export interface StockRequest {
+  id: string
+  product_id: string | null
+  product_name: string
+  brand: string | null
+  size: string | null
+  notes: string | null
+  email: string | null
+  phone: string | null
+  source: StockRequestSource
+  status: StockRequestStatus
+  request_count: number
+  admin_notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type SubscriptionFrequency = 'weekly' | 'biweekly' | 'monthly'
 export type SubscriptionStatus = 'active' | 'paused' | 'canceled'
 
