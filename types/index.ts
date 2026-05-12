@@ -129,12 +129,32 @@ export interface Order {
   stripe_payment_intent_id: string | null
   delivery_address: DeliveryAddress | null
   notes: string | null
+  delivery_tracking_id: string | null
+  delivery_status: DeliveryStatus | null
+  tracking_url: string | null
+  delivery_provider: string | null
+  delivery_provider_fee_cents: number | null
+  delivery_updated_at: string | null
   created_at: string
   updated_at: string
   // joined
   order_items?: OrderItem[]
   customer?: Customer | null
 }
+
+export type DeliveryStatus =
+  | 'created'
+  | 'quoted'
+  | 'confirmed'
+  | 'enroute_to_pickup'
+  | 'arrived_at_pickup'
+  | 'picked_up'
+  | 'enroute_to_dropoff'
+  | 'arrived_at_dropoff'
+  | 'delivered'
+  | 'canceled'
+  | 'returned'
+  | 'failed'
 
 export interface DeliveryAddress {
   line1: string
