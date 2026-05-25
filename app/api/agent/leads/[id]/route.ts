@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAgentKey, agentSupabase } from '@/lib/agent/auth'
 
 // GET /api/agent/leads/:id — full lead + outreach history + linked business account
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const deny = requireAgentKey(req)
   if (deny) return deny
 
   const supabase = agentSupabase()
-  const { id } = params
+  const { id } = await params
 
   const { data: lead, error } = await supabase
     .from('office_refill_leads')
@@ -34,12 +34,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PATCH /api/agent/leads/:id — update lead fields
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const deny = requireAgentKey(req)
   if (deny) return deny
 
   const supabase = agentSupabase()
-  const { id } = params
+  const { id } = await params
   const body = await req.json()
 
   const allowed = [
