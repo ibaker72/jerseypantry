@@ -17,10 +17,10 @@ const SELF_DELIVERY_MAX_DISTANCE_MILES = 5
 
 // ── Dispatch Decision Logic ──────────────────────────────────────────────────
 
-export function determineDeliveryType(
+export async function determineDeliveryType(
   weight_lbs: number,
   distance_miles: number | null
-): DispatchDecision {
+): Promise<DispatchDecision> {
   const withinWeight = weight_lbs < SELF_DELIVERY_MAX_WEIGHT_LBS
   const withinDistance =
     distance_miles === null || distance_miles <= SELF_DELIVERY_MAX_DISTANCE_MILES
@@ -96,7 +96,7 @@ export async function dispatchOrder(
 
     if (existing) return { success: false, error: 'Dispatch already created for this order' }
 
-    const decision = determineDeliveryType(total_weight_lbs, distance_miles)
+    const decision = await determineDeliveryType(total_weight_lbs, distance_miles)
 
     const { data, error } = await admin
       .from('dispatch_orders')
